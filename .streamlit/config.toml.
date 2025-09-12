@@ -1,0 +1,4 @@
+[server]
+# Use Python 3.10 to ensure compatibility with all dependencies
+# This will override the default Python 3.13
+pythonVersion = "3.10"
