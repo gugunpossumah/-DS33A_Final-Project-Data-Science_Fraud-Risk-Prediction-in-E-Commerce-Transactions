@@ -1,0 +1,2 @@
+# -DS33A_Final-Project-Data-Science_Fraud-Risk-Prediction-in-E-Commerce-Transactions
+Melalui project ini, diharapkan: 1. Model prediksi yang mampu mengidentifikasi fraud secara akurat. 2. Insight bisnis terkait pola perilaku fraud yang relevan bagi perusahaan e-commerce. 3. Solusi berbasis data yang dapat memberikan nilai tambah dalam bentuk penghematan biaya, peningkatan keamanan, dan peningkatan kepercayaan pelanggan.
