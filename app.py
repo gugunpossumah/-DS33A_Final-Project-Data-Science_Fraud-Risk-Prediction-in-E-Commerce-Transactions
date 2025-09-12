@@ -70,25 +70,38 @@ def preprocess_input(data, scaler, label_encoders):
     #Copy data
     data_processed = data.copy()
     
-    #Label encoding untuk categorical features
+    #Pastikan urutan kolom sesuai dengan yang diharapkan scaler
+    numerical_cols = ['Transaction Amount', 'Quantity', 'Customer Age', 'Account Age Days', 'Transaction Hour'] #
     categorical_cols = ['Payment Method', 'Product Category', 'Device Used']
     
+    # Label encoding untuk categorical features
     for col in categorical_cols:
         if col in label_encoders:
-            #Handle unseen labels
-            if data_processed[col].iloc[0] in label_encoders[col].classes_:
-                data_processed[col] = label_encoders[col].transform([data_processed[col].iloc[0]])[0]
+            le = label_encoders[col]
+            # Handle unseen labels
+            if data_processed[col].iloc[0] in le.classes_:
+                data_processed[col] = le.transform([data_processed[col].iloc[0]])[0]
             else:
-                #Jika label tidak dikenal, gunakan nilai yang paling umum
+                # Jika label tidak dikenal, gunakan nilai default (0)
                 data_processed[col] = 0
         else:
             data_processed[col] = 0
     
-    #Scale numerical features
-    scaler_numerical_cols = scaler.feature_names_in_
-    data_processed[scaler_numerical_cols] = scaler.transform(data_processed[scaler_numerical_cols])
-
+    # Pastikan hanya kolom numerik yang di-scale
+    numerical_data = data_processed[numerical_cols]
+    
+    # Scale numerical features
+    scaled_numerical = scaler.transform(numerical_data)
+    
+    # Gabungkan kembali dengan categorical features
+    data_processed[numerical_cols] = scaled_numerical
+    
+    # Urutkan kolom sesuai dengan yang diharapkan model
+    expected_columns = numerical_cols + categorical_cols
+    data_processed = data_processed[expected_columns]
+    
     return data_processed
+
 
 #buat Main panel
 st.subheader("Data Transaksi yang Dimasukkan")
@@ -138,12 +151,23 @@ if st.button("Predict Fraud Risk"):
 st.sidebar.markdown("---")
 st.sidebar.subheader("About the Model")
 st.sidebar.info("""
-Model Machine Learning yang digunakan:
-- **Algorithm**: XGBoost Classifier
-- **Accuracy**: ~99.5%
-- **Precision**: ~90.5%
-- **Recall**: ~81.5%
+**Model Machine Learning yang digunakan:**
+- **Algorithm**: XGBoost Classifier (Optimal)
+- **Best Threshold**: 0.7726
+- **AUC Score**: 0.7735
+- **F1-Score**: 0.3604
+
+**Performance Metrics (Optimal Threshold):**
+- **Precision**: 30.42%
+- **Recall**: 44.19%
+- **Accuracy**: 92%
+
+**Business Impact:**
+- **Fraud Detection Rate**: 44%
+- **False Positive Rate**: 3.1%
+- **Estimated Savings**: Rp 2.1M per 1000 transactions
 """)
+
 
 #buat Footer untuk peringatan
 st.markdown("---")
