@@ -85,9 +85,9 @@ def preprocess_input(data, scaler, label_encoders):
             data_processed[col] = 0
     
     #Scale numerical features
-    numerical_cols = ['Transaction Amount', 'Quantity', 'Customer Age', 'Account Age Days', 'Transaction Hour']
-    data_processed[numerical_cols] = scaler.transform(data_processed[numerical_cols])
-    
+    scaler_numerical_cols = scaler.feature_names_in_
+    data_processed[scaler_numerical_cols] = scaler.transform(data_processed[scaler_numerical_cols])
+
     return data_processed
 
 #buat Main panel
