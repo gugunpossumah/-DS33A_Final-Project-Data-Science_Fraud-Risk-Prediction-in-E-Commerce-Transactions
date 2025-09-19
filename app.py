@@ -86,8 +86,8 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
     # Tambahkan kolom yang hilang
     for col in selected_features:
         if col not in df.columns:
-            df[col] = 0  # atau default value sesuai tipe
-
+            df[col] = 0  # default value numerik, bisa disesuaikan
+    
     # Encode kategorikal
     categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
     for col in categorical_cols:
@@ -95,12 +95,12 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
             le = label_encoders[col]
             val = df[col].iloc[0]
             df[col] = le.transform([val])[0] if val in le.classes_ else -1
-
+    
     # Scale numerik
     numeric_cols = [col for col in df.columns if df[col].dtype in [int, float]]
     if numeric_cols:
         df[numeric_cols] = scaler.transform(df[numeric_cols])
-
+    
     # Pastikan kolom string
     df.columns = df.columns.map(str)
     
@@ -116,7 +116,7 @@ st.write(input_df)
 #buat tombol Prediksi ketika ditekan
 if st.button("Predict Fraud Risk"):
     try:
-        processed_input = preprocess_input(input_df, scaler, label_encoders, model)
+        processed_input = preprocess_input(input_df, scaler, label_encoders, selected_features)
 
         st.write("✅ Final Processed Features:", processed_input.columns.tolist())
         st.write("Processed shape:", processed_input.shape)
