@@ -90,10 +90,10 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
         )
 
     if "Transaction_IsWeekend" in selected_features:
-        df_processed["Transaction_IsWeekend"] = 0  # default: bukan weekend
+        df_processed["Transaction_IsWeekend"] = 0
 
     if "Transaction_Month" in selected_features:
-        df_processed["Transaction_Month"] = 1  # default: Januari
+        df_processed["Transaction_Month"] = 1
 
     if "Address_Mismatch" in selected_features:
         df_processed["Address_Mismatch"] = 0
@@ -124,10 +124,10 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
         df_processed["New_Customer"] = (df_processed["Account Age Days"] < 30).astype(int)
 
     if "Device_Change" in selected_features:
-        df_processed["Device_Change"] = 0  # default: tidak ganti device
+        df_processed["Device_Change"] = 0
 
     if "Transaction_Frequency" in selected_features:
-        df_processed["Transaction_Frequency"] = 1  # default: 1 transaksi
+        df_processed["Transaction_Frequency"] = 1
 
     #Encode categorical (hanya kolom yang ada di selected_features)
     categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
@@ -177,7 +177,22 @@ if st.button("Predict Fraud Risk"):
     except Exception as e:
         st.error(f"❌ Error saat preprocessing: {e}")
         st.stop()
-    
+        
+st.write("=== DEBUG FEATURE CHECK ===")
+st.write("Expected (selected_features):", selected_features)
+st.write("Got from preprocessing:", processed_input.columns.tolist())
+
+# Cek fitur yang hilang atau kelebihan
+missing = [f for f in selected_features if f not in processed_input.columns]
+extra = [f for f in processed_input.columns if f not in selected_features]
+
+if missing:
+    st.error(f"❌ Missing features (hilang): {missing}")
+if extra:
+    st.warning(f"⚠️ Extra features (kelebihan): {extra}")
+
+st.write("Final shape:", processed_input.shape)
+
     # Display results
     st.subheader("Prediction Results")
     
