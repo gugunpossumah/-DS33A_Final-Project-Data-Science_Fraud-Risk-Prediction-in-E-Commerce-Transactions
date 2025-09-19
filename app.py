@@ -129,7 +129,7 @@ def preprocess_input(input_df, scaler, label_encoders, model):
                 df[col] = 0
 
     # Encode kategorikal
-   categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
+    categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
     for col in categorical_cols:
         if col in df.columns:
             le = label_encoders.get(col)
