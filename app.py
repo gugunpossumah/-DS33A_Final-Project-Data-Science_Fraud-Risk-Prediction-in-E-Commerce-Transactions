@@ -81,11 +81,13 @@ def user_input_features():
 input_df = user_input_features()
 
 #buat fungsi preprocessing
-def preprocess_input(input_df, scaler, label_encoders, selected_features):
+def preprocess_input(input_df, scaler, label_encoders, model):
     df = input_df.copy()
 
+    model_features = list(model.feature_names_in_)
+
     # Tambahkan fitur turunan hanya jika ada di selected_features
-    for col in selected_features:
+    for col in model_features:
         if col not in df.columns:
             if col == "Transaction_Day":
                 df[col] = 15
@@ -110,27 +112,26 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
             elif col == "Transaction_Amount_Log":
                 df[col] = np.log1p(df["Transaction Amount"])
             elif col == "Avg_Amount_Customer":
-                df[col] = 0  # default placeholder
+                df[col] = 0
             elif col == "Deviation_Amount":
-                df[col] = 0  # default placeholder
+                df[col] = 0
             elif col == "Device_Change":
-                df[col] = 0  # default placeholder
+                df[col] = 0
             elif col == "Transaction_Frequency":
-                df[col] = 0  # default placeholder
+                df[col] = 0
             elif col == "New_Customer":
-                df[col] = 0  # default placeholder
+                df[col] = 0
             elif col == "Customer Location":
                 df[col] = "unknown"
             elif col == "Device Used":
                 df[col] = "unknown"
             else:
-                df[col] = 0  # fallback
-
+                df[col] = 0
 
     # Encode kategorikal
-    categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
+   categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
     for col in categorical_cols:
-        if col in selected_features and col in df.columns:
+        if col in df.columns:
             le = label_encoders.get(col)
             if le:
                 val = df[col].iloc[0]
@@ -139,7 +140,7 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
                 df[col] = -1
 
     # Scale numerik
-    numeric_cols = [col for col in scaler.feature_names_in_ if col in selected_features]
+    numeric_cols = [col for col in scaler.feature_names_in_ if col in df.columns]
     if numeric_cols:
         df[numeric_cols] = scaler.transform(df[numeric_cols])
 
