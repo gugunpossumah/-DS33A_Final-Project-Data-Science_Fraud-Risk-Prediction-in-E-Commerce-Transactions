@@ -81,41 +81,65 @@ input_df = user_input_features()
 
 #buat fungsi preprocessing
 def preprocess_input(input_df, scaler, label_encoders, selected_features, model):
-    df = input_df.copy()
+    df_processed = input_df.copy()
 
-    # Encode categorical
-    for col, le in label_encoders.items():
-        if col in df.columns:
-            try:
-                df[col] = le.transform(df[col].astype(str))
-            except ValueError:
-                unknown_label = -1
-                df[col] = df[col].apply(lambda x: le.transform([x])[0] if x in le.classes_ else unknown_label)
+    # Feature engineering sesuai kebutuhan
+    if "Transaction_Day" in selected_features:
+        df_processed["Transaction_Day"] = 15
+    if "Transaction_DayOfWeek" in selected_features:
+        df_processed["Transaction_DayOfWeek"] = 3
+    if "Transaction_IsNight" in selected_features:
+        df_processed["Transaction_IsNight"] = (
+            df_processed["Transaction Hour"].between(0, 6).astype(int)
+        )
+    if "Transaction_IsWeekend" in selected_features:
+        df_processed["Transaction_IsWeekend"] = 0
+    if "Transaction_Month" in selected_features:
+        df_processed["Transaction_Month"] = 1
+    if "Address_Mismatch" in selected_features:
+        df_processed["Address_Mismatch"] = 0
+    if "IP_FirstOctet" in selected_features:
+        df_processed["IP_FirstOctet"] = 0
+    if "IP_SecondOctet" in selected_features:
+        df_processed["IP_SecondOctet"] = 0
+    if "Amount_per_Item" in selected_features:
+        df_processed["Amount_per_Item"] = (
+            df_processed["Transaction Amount"] / (df_processed["Quantity"] + 1e-6)
+        )
+    if "Large_Transaction" in selected_features:
+        df_processed["Large_Transaction"] = (df_processed["Transaction Amount"] > 500).astype(int)
+    if "Transaction_Amount_Log" in selected_features:
+        df_processed["Transaction_Amount_Log"] = np.log1p(df_processed["Transaction Amount"])
 
-    # Lengkapi semua fitur dari selected_features dulu
+    # Encode categorical (hanya kolom yang ada di selected_features)
+    categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
+    for col in categorical_cols:
+        if col in selected_features:
+            if col in df_processed.columns and col in label_encoders:
+                le = label_encoders[col]
+                val = df_processed[col].iloc[0]
+                if val in le.classes_:
+                    df_processed[col] = le.transform([val])[0]
+                else:
+                    df_processed[col] = -1
+            else:
+                df_processed[col] = -1
+
+    # Lengkapi missing features
     for col in selected_features:
-        if col not in df.columns:
-            df[col] = 0
+        if col not in df_processed.columns:
+            df_processed[col] = 0
 
-    # Reindex sesuai selected_features (25 kolom penuh)
-    df = df.reindex(columns=selected_features, fill_value=0)
+    # Scaling numeric sesuai training
+    numerical_cols = [col for col in scaler.feature_names_in_ if col in selected_features]
+    if numerical_cols:
+        df_processed[numerical_cols] = scaler.transform(df_processed[numerical_cols])
 
-    #keep hanya fitur yang dipakai model
-    if hasattr(model, "feature_names_in_"):
-        model_features = list(model.feature_names_in_)
-    else:
-        # fallback → buang fitur tambahan manual
-        drop_cols = ["Avg_Amount_Customer", "Deviation_Amount", 
-                     "Device_Change", "New_Customer", "Transaction_Frequency"]
-        model_features = [f for f in selected_features if f not in drop_cols]
+    # ⚠️ Filter lagi biar sama persis dengan fitur model
+    final_features = list(model.feature_names_in_)
+    df_processed = df_processed[final_features]
 
-    df = df[model_features]
-
-    # Scaling numerik
-    numeric_cols = [col for col in df.columns if col in scaler.feature_names_in_]
-    df[numeric_cols] = scaler.transform(df[numeric_cols])
-
-    return df
+    return df_processed
     
 #buat Main panel
 st.subheader("Data Transaksi yang Dimasukkan")
