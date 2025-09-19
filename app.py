@@ -81,37 +81,64 @@ input_df = user_input_features()
 
 #buat fungsi preprocessing
 def preprocess_input(input_df, scaler, label_encoders, selected_features):
-    #Encode kolom kategorikal pakai label encoder
-    df_encoded = input_df.copy()
-    for col, le in label_encoders.items():
-        if col in df_encoded.columns:
-            try:
-                df_encoded[col] = le.transform(df_encoded[col])
-            except ValueError:
-                #kalau ada kategori baru akan difallback ke nilai 0
-                df_encoded[col] = df_encoded[col].map(
-                    lambda s: le.transform([s])[0] if s in le.classes_ else 0
-                )
+    df_processed = input_df.copy()
 
-    #Scale numerik
-    numeric_cols = scaler.feature_names_in_
-    df_encoded[numeric_cols] = scaler.transform(df_encoded[numeric_cols])
+    # Feature Engineering hanya yang dipakai
+    if "Transaction_Day" in selected_features:
+        df_processed["Transaction_Day"] = 15
+    if "Transaction_DayOfWeek" in selected_features:
+        df_processed["Transaction_DayOfWeek"] = 3
+    if "Transaction_IsNight" in selected_features:
+        df_processed["Transaction_IsNight"] = (
+            df_processed["Transaction Hour"].between(0, 6).astype(int)
+        )
+    if "Transaction_IsWeekend" in selected_features:
+        df_processed["Transaction_IsWeekend"] = 0
+    if "Transaction_Month" in selected_features:
+        df_processed["Transaction_Month"] = 1
+    if "Address_Mismatch" in selected_features:
+        df_processed["Address_Mismatch"] = 0
+    if "IP_FirstOctet" in selected_features:
+        df_processed["IP_FirstOctet"] = 0
+    if "IP_SecondOctet" in selected_features:
+        df_processed["IP_SecondOctet"] = 0
+    if "Amount_per_Item" in selected_features:
+        df_processed["Amount_per_Item"] = (
+            df_processed["Transaction Amount"] / (df_processed["Quantity"] + 1e-6)
+        )
+    if "Large_Transaction" in selected_features:
+        df_processed["Large_Transaction"] = (df_processed["Transaction Amount"] > 500).astype(int)
+    if "Transaction_Amount_Log" in selected_features:
+        df_processed["Transaction_Amount_Log"] = np.log1p(df_processed["Transaction Amount"])
 
-    #Pastikan semua kolom sesuai dengan preprocessing
-    # (misalnya 25 kolom total)
-    all_features = scaler.feature_names_in_.tolist() + list(label_encoders.keys())
-    all_features = list(dict.fromkeys(all_features))  # buang duplikat
-    for col in all_features:
-        if col not in df_encoded.columns:
-            df_encoded[col] = 0  # tambahkan default kalau hilang
+    # Encode categorical
+    categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
+    for col in categorical_cols:
+        if col in selected_features:
+            if col in df_processed.columns and col in label_encoders:
+                le = label_encoders[col]
+                val = df_processed[col].iloc[0]
+                if val in le.classes_:
+                    df_processed[col] = le.transform([val])[0]
+                else:
+                    df_processed[col] = -1
+            else:
+                df_processed[col] = -1
 
-    #Urutkan sesuai preprocessing
-    df_encoded = df_encoded[all_features]
+    # Lengkapi missing features
+    for col in selected_features:
+        if col not in df_processed.columns:
+            df_processed[col] = 0
 
-    #Filter ke selected_features (20 fitur hasil SelectKBest)
-    df_final = df_encoded[selected_features]
+    # Scaling numeric sesuai training
+    numerical_cols = [col for col in scaler.feature_names_in_ if col in selected_features]
+    if numerical_cols:
+        df_processed[numerical_cols] = scaler.transform(df_processed[numerical_cols])
 
-    return df_final
+    # Pastikan urutan fitur sesuai training
+    df_processed = df_processed[selected_features]
+    
+    return df_processed
     
 #buat Main panel
 st.subheader("Data Transaksi yang Dimasukkan")
@@ -120,20 +147,27 @@ st.write(input_df)
 #buat tombol Prediksi ketika ditekan
 if st.button("Predict Fraud Risk"):
     try:
+        # Preprocess input
         processed_input = preprocess_input(
-            input_df, scaler, label_encoders, selected_features
-        )
-        
+            input_df, scaler, label_encoders, selected_features)
+
+        # Debug check
         st.write("✅ Final Processed Features:", processed_input.columns.tolist())
         st.write("Processed shape:", processed_input.shape)
 
+        # Bandingkan dengan selected_features
+        st.write("--DEBUG FEATURE CHECK--")
+        st.write("Expected (selected_features):", selected_features)
+        st.write("Got from preprocessing:", processed_input.columns.tolist())
+
+        # Predict
         prediction = model.predict(processed_input)
         prediction_proba = model.predict_proba(processed_input)
 
     except Exception as e:
         st.error(f"❌ Error saat preprocessing/predict: {e}")
         st.stop()
-        
+    
     # Display results
     st.subheader("Prediction Results")
     
