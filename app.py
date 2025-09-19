@@ -23,8 +23,9 @@ try:
     model, preprocessing = load_model()
     scaler = preprocessing['scaler']
     label_encoders = preprocessing['label_encoders']
+    selected_features = preprocessing['selected_features']
 except:
-    st.error("Model tidak ditemukan. Pastikan file model ada di direktori yang sama.")
+    st.error("Model tidak ditemukan!. Pastikan file model & preprocessing ada di direktori yang sama.")
     st.stop()
 
 #buat judul
@@ -59,51 +60,69 @@ def user_input_features():
         'Device Used': device_used
     }
     
-    features = pd.DataFrame(data, index=[0])
-    return features
-
-#Get user input
+    return pd.DataFrame(data, index=[0])
+    
+#Get user input   
 input_df = user_input_features()
 
 #buat fungsi preprocessing
-def preprocess_input(data, scaler, label_encoders):
-    #Copy data
-    data_processed = data.copy()
-    
-    #Pastikan urutan kolom sesuai dengan yang diharapkan scaler
-    numerical_cols = ['Transaction Amount', 'Quantity', 'Customer Age', 'Account Age Days', 'Transaction Hour'] #
+def preprocess_input(data, scaler, label_encoders, selected_features):
+    df_processed = data.copy()
+
+    # Fitur waktu (dummy)
+    df_processed['Transaction_Day'] = 15
+    df_processed['Transaction_Month'] = 6
+    df_processed['Transaction_DayOfWeek'] = 3
+    df_processed['Transaction_IsWeekend'] = 0
+
+    # IsNight dari Transaction Hour
+    df_processed['Transaction_IsNight'] = (
+        (df_processed['Transaction Hour'] >= 0) & (df_processed['Transaction Hour'] <= 6)
+    ).astype(int)
+
+    # Address mismatch & IP (dummy)
+    df_processed['Address_Mismatch'] = 0
+    df_processed['IP_FirstOctet'] = 0
+    df_processed['IP_SecondOctet'] = 0
+
+    # Amount-based
+    df_processed['Amount_per_Item'] = df_processed['Transaction Amount'] / (df_processed['Quantity'] + 1e-6)
+    df_processed['Large_Transaction'] = (df_processed['Transaction Amount'] > 500).astype(int)
+    df_processed['Transaction_Amount_Log'] = np.log1p(df_processed['Transaction Amount'])
+
+    # Customer behavior (dummy)
+    df_processed['Avg_Amount_Customer'] = df_processed['Transaction Amount']
+    df_processed['Deviation_Amount'] = 1.0
+
+    # New customer
+    df_processed['New_Customer'] = (df_processed['Account Age Days'] < 30).astype(int)
+
+    # Encode categorical
     categorical_cols = ['Payment Method', 'Product Category', 'Device Used']
-    
-    # Label encoding untuk categorical features
     for col in categorical_cols:
         if col in label_encoders:
             le = label_encoders[col]
-            # Handle unseen labels
-            if data_processed[col].iloc[0] in le.classes_:
-                data_processed[col] = le.transform([data_processed[col].iloc[0]])[0]
+            if df_processed[col].iloc[0] in le.classes_:
+                df_processed[col] = le.transform([df_processed[col].iloc[0]])[0]
             else:
-                # Jika label tidak dikenal, gunakan nilai default (0)
-                data_processed[col] = 0
+                df_processed[col] = -1
         else:
-            data_processed[col] = 0
+            df_processed[col] = -1
 
-    # Ambil hanya kolom numerik, pastikan urutan sesuai scaler
-    if hasattr(scaler, "feature_names_in_"):
-        numerical_data = data_processed[scaler.feature_names_in_]
-    else:
-        numerical_data = data_processed[numerical_cols]
-    
-    # Transform numerik
-    scaled_numerical = scaler.transform(numerical_data)
-    
-    # Replace hasil scaling
-    data_processed[numerical_data.columns] = scaled_numerical
-    
-    # Urutkan sesuai training
-    expected_columns = numerical_cols + categorical_cols
-    data_processed = data_processed[expected_columns]
-    
-    return data_processed
+    # Pastikan semua fitur ada
+    missing_cols = [col for col in selected_features if col not in df_processed.columns]
+    for col in missing_cols:
+        df_processed[col] = 0
+
+    df_processed = df_processed[selected_features]
+
+    # Scaling
+    df_processed = pd.DataFrame(
+        scaler.transform(df_processed),
+        columns=selected_features
+    )
+
+    return df_processed
 
 
 #buat Main panel
@@ -113,7 +132,7 @@ st.write(input_df)
 #buat tombol Prediksi ketika ditekan
 if st.button("Predict Fraud Risk"):
     # Preprocess input
-    processed_input = preprocess_input(input_df, scaler, label_encoders)
+    processed_input = preprocess_input(input_df, scaler, label_encoders, selected_features)
     
     # Predict
     prediction = model.predict(processed_input)
@@ -125,7 +144,7 @@ if st.button("Predict Fraud Risk"):
     col1, col2 = st.columns(2)
     
     with col1:
-        st.metric("Prediction", "FRAUD" if prediction[0] == 1 else "LEGITIMATE")
+        st.metric("Prediction", "🚨 FRAUD" if prediction[0] == 1 else "✅ LEGITIMATE")
     
     with col2:
         fraud_prob = prediction_proba[0][1] * 100
@@ -167,7 +186,7 @@ st.sidebar.info("""
 
 **Business Impact:**
 - **Fraud Detection Rate**: 44%
-- **False Positive Rate**: 3.1%
+- **False Positive Rate**: 30%
 - **Estimated Savings**: Rp 2.1M per 1000 transactions
 """)
 
@@ -175,5 +194,5 @@ st.sidebar.info("""
 #buat Footer untuk peringatan
 st.markdown("---")
 st.markdown("""
-**Disclaimer**: Prediksi ini berdasarkan model machine learning dan harus digunakan sebagai alat bantu keputusan, bukan sebagai satu-satunya sumber kebenaran.
+**Disclaimer**: Prediksi ini berdasarkan model machine learning dan harus digunakan sebagai alat bantu keputusan.
 """)
