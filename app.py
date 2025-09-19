@@ -1,21 +1,23 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import pickle
 import joblib
 import os
-from sklearn.preprocessing import StandardScaler, LabelEncoder
 
-#kita set page config
+# ------------------------
+# Page config
+# ------------------------
 st.set_page_config(
     page_title="Fraud Detection System",
     page_icon="⚠️",
     layout="wide"
 )
 
-#kita load model dan preprocessing objects
 BASE_DIR = os.path.dirname(__file__)
 
+# ------------------------
+# Load model & preprocessing
+# ------------------------
 @st.cache_resource
 def load_model():
     model = joblib.load(os.path.join(BASE_DIR, "fraud_detection_model.pkl"))
@@ -24,115 +26,131 @@ def load_model():
 
 try:
     model, preprocessing = load_model()
-
     scaler = preprocessing['scaler']
     label_encoders = preprocessing['label_encoders']
-    selected_features = [
-        'Transaction Amount', 'Payment Method', 'Product Category', 'Quantity',
-        'Customer Age', 'Customer Location', 'Account Age Days', 'Transaction Hour',
-        'Transaction_Day', 'Transaction_DayOfWeek', 'Transaction_IsNight', 'Address_Mismatch',
-        'IP_FirstOctet', 'IP_SecondOctet', 'Amount_per_Item', 'Large_Transaction',
-        'Transaction_Amount_Log', 'Avg_Amount_Customer', 'Deviation_Amount', 'New_Customer'
-    ]
+    selected_features = preprocessing['selected_features']  # 20 fitur final
 
-    st.success("Model & preprocessing berhasil dimuat!")
-    st.write("Jumlah fitur yang dipakai:", len(selected_features))
-    st.write("Daftar fitur final:", selected_features)
-
+    st.success("✅ Model & preprocessing berhasil dimuat!")
 except Exception as e:
-    st.error("Model tidak ditemukan!. Pastikan file model & preprocessing ada di direktori yang sama.")
+    st.error("❌ Model/preprocessing tidak ditemukan.")
     st.stop()
 
-#buat judul
-st.title("⚠️ Fraud Detection System - E-Commerce Transactions")
-st.markdown("""
-Sistem ini memprediksi kemungkinan transaksi e-commerce merupakan fraud berdasarkan karakteristik transaksi.
-""")
-
-#buat Sidebar untuk input data
+# ------------------------
+# Sidebar: user input
+# ------------------------
 st.sidebar.header("Input Data Transaksi")
 
-#buat Fungsi untuk input data
 def user_input_features():
     transaction_amount = st.sidebar.number_input("Transaction Amount", min_value=0.0, value=100.0)
-    quantity = st.sidebar.slider("Quantity", 1, 5, 2)
+    quantity = st.sidebar.slider("Quantity", 1, 10, 1)
     customer_age = st.sidebar.slider("Customer Age", 18, 100, 35)
     account_age_days = st.sidebar.slider("Account Age Days", 1, 365, 180)
-    transaction_hour = st.sidebar.slider("Transaction Hour", 0, 23, 12)
-    
+    transaction_date = st.sidebar.date_input("Transaction Date")
+    device_used = st.sidebar.selectbox("Device Used", ['mobile', 'desktop', 'tablet'])
     payment_method = st.sidebar.selectbox("Payment Method", ['credit card', 'debit card', 'bank transfer', 'PayPal'])
     product_category = st.sidebar.selectbox("Product Category", ['electronics', 'clothing', 'home & garden', 'books', 'beauty'])
-    device_used = st.sidebar.selectbox("Device Used", ['mobile', 'desktop', 'tablet'])
-    
+    customer_location = st.sidebar.text_input("Customer Location", "Unknown")
+    shipping_address = st.sidebar.text_input("Shipping Address", "Address1")
+    billing_address = st.sidebar.text_input("Billing Address", "Address1")
+    ip_address = st.sidebar.text_input("IP Address", "0.0.0.0")
+
     data = {
         'Transaction Amount': transaction_amount,
         'Quantity': quantity,
         'Customer Age': customer_age,
         'Account Age Days': account_age_days,
-        'Transaction Hour': transaction_hour,
+        'Transaction Date': pd.to_datetime(transaction_date),
+        'Device Used': device_used,
         'Payment Method': payment_method,
         'Product Category': product_category,
-        'Device Used': device_used
+        'Customer Location': customer_location,
+        'Shipping Address': shipping_address,
+        'Billing Address': billing_address,
+        'IP Address': ip_address
     }
-    
     return pd.DataFrame(data, index=[0])
-    
-#Get user input   
+
 input_df = user_input_features()
 
-#buat fungsi preprocessing
-def preprocess_input(input_df, scaler, label_encoders, model):
-    df = input_df.copy()
+# ------------------------
+# Preprocessing untuk prediksi
+# ------------------------
+def preprocess_input(df, scaler, label_encoders, selected_features):
+    df_processed = df.copy()
 
-    # Ambil nama fitur model
-    model_features = list(model.feature_names_in_)
+    # --- Feature engineering ---
+    df_processed['Transaction_Day'] = df_processed['Transaction Date'].dt.day
+    df_processed['Transaction_Month'] = df_processed['Transaction Date'].dt.month
+    df_processed['Transaction_DayOfWeek'] = df_processed['Transaction Date'].dt.dayofweek
+    df_processed['Transaction_IsWeekend'] = df_processed['Transaction_DayOfWeek'].isin([5,6]).astype(int)
+    df_processed['Transaction Hour'] = df_processed['Transaction Date'].dt.hour
+    df_processed['Transaction_IsNight'] = ((df_processed['Transaction Hour'] >=0) & (df_processed['Transaction Hour'] <=6)).astype(int)
+    df_processed['Address_Mismatch'] = (df_processed['Shipping Address'] != df_processed['Billing Address']).astype(int)
 
-    # Tambahkan fitur yang hilang / default
-    for col in model_features:
-        if col not in df.columns:
-            if col in ["Transaction_IsNight", "Large_Transaction", "Transaction_IsWeekend", "Device_Change", "New_Customer"]:
-                df[col] = 0
-            elif col in ["Amount_per_Item", "Transaction_Amount_Log", "Deviation_Amount", "Avg_Amount_Customer", "Transaction_Frequency"]:
-                df[col] = 0.0
-            elif col in ["Device Used", "Customer Location", "Payment Method", "Product Category"]:
-                df[col] = "unknown"
-            else:
-                df[col] = 0
+    # IP Address
+    def extract_ip(ip):
+        try:
+            parts = str(ip).split('.')
+            if len(parts)==4:
+                return int(parts[0]), int(parts[1])
+        except:
+            pass
+        return 0,0
+    ip_feats = df_processed['IP Address'].apply(extract_ip)
+    df_processed['IP_FirstOctet'] = ip_feats.apply(lambda x:x[0])
+    df_processed['IP_SecondOctet'] = ip_feats.apply(lambda x:x[1])
 
-    # Encode kategorikal
-    categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
+    # Transaction based
+    df_processed['Amount_per_Item'] = df_processed['Transaction Amount'] / (df_processed['Quantity'] + 1e-6)
+    df_processed['Large_Transaction'] = (df_processed['Transaction Amount'] > 500).astype(int)
+    df_processed['Transaction_Amount_Log'] = np.log1p(df_processed['Transaction Amount'])
+
+    # Behavioral features
+    df_processed['Transaction_Frequency'] = 1  # dummy, karena kita tidak punya history di Streamlit
+    df_processed['Avg_Amount_Customer'] = df_processed['Transaction Amount']  # dummy
+    df_processed['Deviation_Amount'] = 0  # dummy
+    df_processed['Device_Change'] = 0  # dummy
+    df_processed['New_Customer'] = (df_processed['Account Age Days'] < 30).astype(int)
+
+    # Encode categorical
+    categorical_cols = ['Payment Method', 'Product Category', 'Device Used', 'Customer Location']
     for col in categorical_cols:
-        if col in df.columns and col in label_encoders:
+        if col in df_processed.columns and col in label_encoders:
             le = label_encoders[col]
-            val = df[col].iloc[0]
-            df[col] = le.transform([val])[0] if val in le.classes_ else -1
+            val = df_processed[col].iloc[0]
+            df_processed[col] = le.transform([val])[0] if val in le.classes_ else -1
+
+    # Drop kolom yang tidak dipakai model
+    drop_cols = ['Transaction Date', 'Shipping Address', 'Billing Address', 'IP Address', 'Transaction Hour']
+    df_processed = df_processed.drop(columns=[col for col in drop_cols if col in df_processed.columns], errors='ignore')
+
+    # Tambahkan fitur hilang untuk selected_features
+    for col in selected_features:
+        if col not in df_processed.columns:
+            df_processed[col] = 0
 
     # Scale numerik
-    numeric_cols = [col for col in scaler.feature_names_in_ if col in df.columns]
-    if numeric_cols:
-        df[numeric_cols] = scaler.transform(df[numeric_cols])
+    num_cols = [col for col in scaler.feature_names_in_ if col in df_processed.columns]
+    if num_cols:
+        df_processed[num_cols] = scaler.transform(df_processed[num_cols])
 
-    # Pastikan semua nama kolom string
-    df.columns = df.columns.map(str)
+    # Pastikan semua kolom string
+    df_processed.columns = df_processed.columns.astype(str)
 
-    # Pastikan semua nilai numerik bertipe float/int
-    for col in df.columns:
-        if df[col].dtype == object:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-
-    # Urutkan kolom persis seperti model
-    df_final = df[model_features]
+    # Urutkan sesuai selected_features
+    df_final = df_processed[selected_features]
 
     return df_final
-    
-#buat Main panel
-st.subheader("Data Transaksi yang Dimasukkan")
+
+# ------------------------
+# Main panel
+# ------------------------
+st.subheader("Data Transaksi")
 st.write(input_df)
 
-#buat tombol Prediksi ketika ditekan
 if st.button("Predict Fraud Risk"):
     try:
-        processed_input = preprocess_input(input_df, scaler, label_encoders, model)
+        processed_input = preprocess_input(input_df, scaler, label_encoders, selected_features)
 
         st.write("✅ Final Processed Features:", processed_input.columns.tolist())
         st.write("Processed shape:", processed_input.shape)
@@ -140,65 +158,12 @@ if st.button("Predict Fraud Risk"):
         prediction = model.predict(processed_input)
         prediction_proba = model.predict_proba(processed_input)
 
+        st.subheader("Prediction Result")
+        col1, col2 = st.columns(2)
+        col1.metric("Prediction", "🚨 FRAUD" if prediction[0]==1 else "✅ LEGITIMATE")
+        col2.metric("Fraud Probability", f"{prediction_proba[0][1]*100:.2f}%")
+
+        st.progress(float(prediction_proba[0][1]))
+
     except Exception as e:
         st.error(f"❌ Error saat preprocessing/predict: {e}")
-        st.stop()
-    
-    # Display results
-    st.subheader("Prediction Results")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.metric("Prediction", "🚨 FRAUD" if prediction[0] == 1 else "✅ LEGITIMATE")
-    
-    with col2:
-        fraud_prob = prediction_proba[0][1] * 100
-        st.metric("Fraud Probability", f"{fraud_prob:.2f}%")
-    
-    # Progress bar untuk probability
-    st.progress(float(prediction_proba[0][1]))
-    
-    # Interpretasi hasil
-    if prediction[0] == 1:
-        st.error("🚨 WARNING: Transaksi ini terdeteksi sebagai potensial FRAUD!")
-        st.info("Rekomendasi: Lakukan verifikasi tambahan pada transaksi ini.")
-    else:
-        st.success("✅ Transaksi ini terdeteksi sebagai LEGITIMATE")
-        st.info("Transaksi dapat diproses secara normal.")
-    
-    # Additional information
-    st.subheader("Detail Probabilitas")
-    prob_df = pd.DataFrame({
-        'Class': ['Legitimate', 'Fraud'],
-        'Probability': [prediction_proba[0][0] * 100, prediction_proba[0][1] * 100]
-    })
-    st.bar_chart(prob_df.set_index('Class'))
-
-#kita tambahkan informasi tentang model
-st.sidebar.markdown("---")
-st.sidebar.subheader("About the Model")
-st.sidebar.info("""
-**Model Machine Learning yang digunakan:**
-- **Algorithm**: XGBoost Classifier (Optimal)
-- **Best Threshold**: 0.7726
-- **AUC Score**: 0.7735
-- **F1-Score**: 0.3604
-
-**Performance Metrics (Optimal Threshold):**
-- **Precision**: 30.42%
-- **Recall**: 44.19%
-- **Accuracy**: 92%
-
-**Business Impact:**
-- **Fraud Detection Rate**: 44%
-- **False Positive Rate**: 30%
-- **Estimated Savings**: Rp 2.1M per 1000 transactions
-""")
-
-
-#buat Footer untuk peringatan
-st.markdown("---")
-st.markdown("""
-**Disclaimer**: Prediksi ini berdasarkan model machine learning dan harus digunakan sebagai alat bantu keputusan.
-""")
