@@ -18,13 +18,15 @@ def load_model():
     model = joblib.load('fraud_detection_model.pkl')
     preprocessing = joblib.load('preprocessing_objects.joblib')
     return model, preprocessing
-
 try:
     model, preprocessing = load_model()
-    st.write("Isi preprocessing:", preprocessing)  # Debug
+
     scaler = preprocessing['scaler']
     label_encoders = preprocessing['label_encoders']
-    selected_features = preprocessing.get('selected_features', None)
+    selected_features = preprocessing['selected_features']
+
+    st.success("Model & preprocessing berhasil dimuat!")
+    st.write("Jumlah fitur yang dipakai:", len(selected_features))
 except:
     st.error("Model tidak ditemukan!. Pastikan file model & preprocessing ada di direktori yang sama.")
     st.stop()
