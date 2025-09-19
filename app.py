@@ -126,9 +126,7 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
     df_processed = df_processed[selected_features]
     
     return df_processed
-
-st.write("Processed shape:", processed_input.shape)
-st.write("Processed features:", processed_input.columns.tolist())
+    
 #buat Main panel
 st.subheader("Data Transaksi yang Dimasukkan")
 st.write(input_df)
