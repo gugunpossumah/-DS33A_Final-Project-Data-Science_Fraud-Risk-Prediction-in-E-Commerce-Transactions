@@ -27,7 +27,7 @@ try:
 
     st.success("Model & preprocessing berhasil dimuat!")
     st.write("Jumlah fitur yang dipakai:", len(selected_features))
-except:
+except Exception as e:
     st.error("Model tidak ditemukan!. Pastikan file model & preprocessing ada di direktori yang sama.")
     st.stop()
 
