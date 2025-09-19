@@ -80,7 +80,7 @@ def user_input_features():
 input_df = user_input_features()
 
 #buat fungsi preprocessing
-def preprocess_input(input_df, scaler, label_encoders, selected_features):
+def preprocess_input(input_df, scaler, label_encoders, selected_features, model):
     df = input_df.copy()
 
     # Encode categorical
@@ -92,15 +92,27 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
                 unknown_label = -1
                 df[col] = df[col].apply(lambda x: le.transform([x])[0] if x in le.classes_ else unknown_label)
 
-    # Reindex ke semua kolom (25 kolom penuh)
+    # Lengkapi semua fitur dari selected_features dulu
+    for col in selected_features:
+        if col not in df.columns:
+            df[col] = 0
+
+    # Reindex sesuai selected_features (25 kolom penuh)
     df = df.reindex(columns=selected_features, fill_value=0)
 
-    #ambil hanya fitur yang dipakai model
-    model_features = model.feature_names_in_ if hasattr(model, "feature_names_in_") else selected_features[:20]
+    #keep hanya fitur yang dipakai model
+    if hasattr(model, "feature_names_in_"):
+        model_features = list(model.feature_names_in_)
+    else:
+        # fallback → buang fitur tambahan manual
+        drop_cols = ["Avg_Amount_Customer", "Deviation_Amount", 
+                     "Device_Change", "New_Customer", "Transaction_Frequency"]
+        model_features = [f for f in selected_features if f not in drop_cols]
+
     df = df[model_features]
 
-    # Scale hanya numerik
-    numeric_cols = df.select_dtypes(include=["int64", "float64"]).columns
+    # Scaling numerik
+    numeric_cols = [col for col in df.columns if col in scaler.feature_names_in_]
     df[numeric_cols] = scaler.transform(df[numeric_cols])
 
     return df
