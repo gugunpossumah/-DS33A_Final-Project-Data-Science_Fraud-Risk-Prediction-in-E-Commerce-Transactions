@@ -18,29 +18,26 @@ BASE_DIR = os.path.dirname(__file__)
 
 @st.cache_resource
 def load_model():
-    #Load model utama
     model = joblib.load(os.path.join(BASE_DIR, "fraud_detection_model.pkl"))
     preprocessing = joblib.load(os.path.join(BASE_DIR, "preprocessing_objects.joblib"))
-    #kita komponen preprocessing
-    scaler = preprocessing.get('scaler', None)
-    label_encoders = preprocessing.get('label_encoders', None)
-    #kita cek apakah selected_features disimpan di dalam preprocessing
-    if 'selected_features' in preprocessing:
-        selected_features = preprocessing['selected_features']
-    else:
-        #kalau tidak ada di preprocessing, coba load dari file terpisah
-        features_path = os.path.join(BASE_DIR, "selected_features.pkl")
-        if os.path.exists(features_path):
-            selected_features = joblib.load(features_path)
-        else:
-            raise ValueError("❌ selected_features tidak ditemukan di preprocessing maupun file pkl!")
+    return model, preprocessing
 
-    return model, scaler, label_encoders, selected_features
 try:
-    model, scaler, label_encoders, selected_features = load_model()
+    model, preprocessing = load_model()
+
+    scaler = preprocessing['scaler']
+    label_encoders = preprocessing['label_encoders']
+
+    # Override selected_features dengan fitur yang dipakai model
+    if hasattr(model, "feature_names_in_"):
+        selected_features = list(model.feature_names_in_)
+    else:
+        selected_features = preprocessing['selected_features']
+
     st.success("Model & preprocessing berhasil dimuat!")
     st.write("Jumlah fitur yang dipakai:", len(selected_features))
-    st.write("Daftar fitur:", selected_features)
+    st.write("Daftar fitur final:", selected_features)
+
 except Exception as e:
     st.error("Model tidak ditemukan!. Pastikan file model & preprocessing ada di direktori yang sama.")
     st.stop()
@@ -81,8 +78,6 @@ def user_input_features():
     
 #Get user input   
 input_df = user_input_features()
-st.write("Input DF:", input_df.columns.tolist())
-st.write("Expected Features:", selected_features)
 
 #buat fungsi preprocessing
 def preprocess_input(input_df, scaler, label_encoders, selected_features):
