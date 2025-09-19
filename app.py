@@ -109,12 +109,11 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
             elif col == "Transaction_Amount_Log":
                 df_processed[col] = np.log1p(df_processed["Transaction Amount"])
             else:
-                # placeholder default 0 untuk fitur lain
-                df_processed[col] = 0
+                df_processed[col] = 0  # default
 
     # Encode categorical hanya jika ada di selected_features
     for col in ["Payment Method", "Product Category", "Device Used", "Customer Location"]:
-        if col in selected_features:
+        if col in selected_features and col in df_processed.columns:
             if col in label_encoders:
                 le = label_encoders[col]
                 val = df_processed[col].iloc[0]
@@ -122,12 +121,12 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
             else:
                 df_processed[col] = -1
 
-    # Scale numerik jika ada
+    # Scale numerik
     numeric_cols = [col for col in scaler.feature_names_in_ if col in selected_features]
     if numeric_cols:
         df_processed[numeric_cols] = scaler.transform(df_processed[numeric_cols])
 
-    # Pastikan urutan kolom sesuai selected_features
+    # **Filter akhir ke selected_features saja (20 fitur)**
     df_processed = df_processed[selected_features]
 
     return df_processed
