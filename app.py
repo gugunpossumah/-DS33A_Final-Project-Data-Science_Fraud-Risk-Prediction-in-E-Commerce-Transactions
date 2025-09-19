@@ -81,75 +81,26 @@ input_df = user_input_features()
 
 #buat fungsi preprocessing
 def preprocess_input(input_df, scaler, label_encoders, selected_features):
-    df_processed = input_df.copy()
+    df = input_df.copy()
 
-    #Feature Engineering yang ada di selected_features
-    if "Transaction_Day" in selected_features:
-        df_processed["Transaction_Day"] = 15
+    # Pastikan semua kolom kategorikal di-encode
+    for col, le in label_encoders.items():
+        if col in df.columns:
+            try:
+                df[col] = le.transform(df[col].astype(str))
+            except ValueError:
+                # Kalau ada kategori baru yang tidak dikenal, kasih default
+                unknown_label = -1
+                df[col] = df[col].apply(lambda x: le.transform([x])[0] if x in le.classes_ else unknown_label)
 
-    if "Transaction_DayOfWeek" in selected_features:
-        df_processed["Transaction_DayOfWeek"] = 3
+    # Reindex supaya sesuai urutan model
+    df = df.reindex(columns=selected_features, fill_value=0)
 
-    if "Transaction_IsNight" in selected_features:
-        df_processed["Transaction_IsNight"] = (
-            df_processed["Transaction Hour"].between(0, 6).astype(int)
-        )
+    # Scale hanya kolom numerik
+    numeric_cols = df.select_dtypes(include=["int64", "float64"]).columns
+    df[numeric_cols] = scaler.transform(df[numeric_cols])
 
-    if "Address_Mismatch" in selected_features:
-        df_processed["Address_Mismatch"] = 0
-
-    if "IP_FirstOctet" in selected_features:
-        df_processed["IP_FirstOctet"] = 0
-    if "IP_SecondOctet" in selected_features:
-        df_processed["IP_SecondOctet"] = 0
-
-    if "Amount_per_Item" in selected_features:
-        df_processed["Amount_per_Item"] = (
-            df_processed["Transaction Amount"] / (df_processed["Quantity"] + 1e-6)
-        )
-
-    if "Large_Transaction" in selected_features:
-        df_processed["Large_Transaction"] = (df_processed["Transaction Amount"] > 500).astype(int)
-
-    if "Transaction_Amount_Log" in selected_features:
-        df_processed["Transaction_Amount_Log"] = np.log1p(df_processed["Transaction Amount"])
-
-    if "Avg_Amount_Customer" in selected_features:
-        df_processed["Avg_Amount_Customer"] = df_processed["Transaction Amount"]
-
-    if "Deviation_Amount" in selected_features:
-        df_processed["Deviation_Amount"] = 0
-
-    if "New_Customer" in selected_features:
-        df_processed["New_Customer"] = (df_processed["Account Age Days"] < 30).astype(int)
-
-    #Encode categorical
-    categorical_cols = ["Payment Method", "Product Category", "Customer Location"]
-    for col in categorical_cols:
-        if col in selected_features:
-            if col in df_processed.columns and col in label_encoders:
-                le = label_encoders[col]
-                val = df_processed[col].iloc[0]
-                if val in le.classes_:
-                    df_processed[col] = le.transform([val])[0]
-                else:
-                    df_processed[col] = -1
-            else:
-                df_processed[col] = -1
-
-    #Tambahkan fitur yg belum ada (isi default 0)
-    for col in selected_features:
-        if col not in df_processed.columns:
-            df_processed[col] = 0
-
-    #Scaling numeric sesuai training
-    numerical_cols = [col for col in scaler.feature_names_in_ if col in selected_features]
-    df_processed[numerical_cols] = scaler.transform(df_processed[numerical_cols])
-
-    #kita urutkan sesuai training
-    df_processed = df_processed[selected_features]
-
-    return df_processed
+    return df
     
 #buat Main panel
 st.subheader("Data Transaksi yang Dimasukkan")
