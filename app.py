@@ -74,50 +74,66 @@ st.write("Input DF:", input_df.columns.tolist())
 st.write("Expected Features:", selected_features)
 
 #buat fungsi preprocessing
-def preprocess_input(input_df, scaler, label_encoders=None):
-    data = input_df.copy()
+def preprocess_input(input_df, scaler, label_encoders, selected_features):
+    df_processed = input_df.copy()
 
-    #kita buat Feature Engineering yang dipakai saat training
-    if "Transaction Date" in data.columns:
-        data["Transaction_Day"] = pd.to_datetime(data["Transaction Date"]).dt.day
-        data["Transaction_Month"] = pd.to_datetime(data["Transaction Date"]).dt.month
-        data["Transaction_DayOfWeek"] = pd.to_datetime(data["Transaction Date"]).dt.dayofweek
-        data["Transaction_IsWeekend"] = data["Transaction_DayOfWeek"].isin([5,6]).astype(int)
-        data["Transaction_IsNight"] = data["Transaction Hour"].between(0, 6).astype(int)
+    #Feature Engineering sesuai model (fitur berdasarkan waktu transaksi, lokasi dan alamat, nilai transaksi dan perilaku pelanggan)
+    df_processed["Transaction_Day"] = 15
+    df_processed["Transaction_Month"] = 6
+    df_processed["Transaction_DayOfWeek"] = 3
+    df_processed["Transaction_IsWeekend"] = 0
+    df_processed["Transaction_IsNight"] = (
+        df_processed["Transaction Hour"].between(0, 6).astype(int)
+    )
 
-    if "Billing Address" in data.columns and "Shipping Address" in data.columns:
-        data["Address_Mismatch"] = (data["Billing Address"] != data["Shipping Address"]).astype(int)
+    df_processed["Address_Mismatch"] = 0
+    df_processed["IP_FirstOctet"] = 0
+    df_processed["IP_SecondOctet"] = 0
 
-    if "IP Address" in data.columns:
-        data["IP_FirstOctet"] = data["IP Address"].str.split(".").str[0].astype(int)
-        data["IP_SecondOctet"] = data["IP Address"].str.split(".").str[1].astype(int)
+    df_processed["Amount_per_Item"] = df_processed["Transaction Amount"] / (df_processed["Quantity"] + 1e-6)
+    df_processed["Large_Transaction"] = (df_processed["Transaction Amount"] > 500).astype(int)
+    df_processed["Transaction_Amount_Log"] = np.log1p(df_processed["Transaction Amount"])
 
-    if "Transaction Amount" in data.columns and "Quantity" in data.columns:
-        data["Amount_per_Item"] = data["Transaction Amount"] / data["Quantity"]
-        data["Large_Transaction"] = (data["Transaction Amount"] > 500).astype(int)
-        data["Transaction_Amount_Log"] = np.log1p(data["Transaction Amount"])
+    df_processed["Transaction_Frequency"] = 1
+    df_processed["Avg_Amount_Customer"] = df_processed["Transaction Amount"]
+    df_processed["Deviation_Amount"] = 0
+    df_processed["Device_Change"] = 0
+    df_processed["New_Customer"] = (df_processed["Account Age Days"] < 30).astype(int)
 
-    # Dummy contoh agregasi customer
-    if "Customer ID" in data.columns and "Transaction Amount" in data.columns:
-        data["Transaction_Frequency"] = 1  # default jika 1 transaksi
-        data["Avg_Amount_Customer"] = data["Transaction Amount"]
-        data["Deviation_Amount"] = 0
+    #Encode categorical
+    categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
+    for col in categorical_cols:
+        if col in df_processed.columns and col in label_encoders:
+            le = label_encoders[col]
+            val = df_processed[col].iloc[0]
+            if val in le.classes_:
+                df_processed[col] = le.transform([val])[0]
+            else:
+                df_processed[col] = -1
+        elif col not in df_processed.columns:
+            df_processed[col] = -1
 
-    if "Device Used" in data.columns:
-        data["Device_Change"] = 0
-    data["New_Customer"] = 0
+    #kita lengkapi missing features
+    for col in selected_features:
+        if col not in df_processed.columns:
+            df_processed[col] = 0
 
-    # Scale numerical features sesuai training ---
-    numerical_cols = scaler.feature_names_in_
-    data[numerical_cols] = scaler.transform(data[numerical_cols])
+    #kita urutkan sesuai training 
+    df_processed = df_processed[selected_features]
 
-    return data[scaler.feature_names_in_]
+    #Scaling
+    df_processed = pd.DataFrame(
+        scaler.transform(df_processed),
+        columns=selected_features
+    )
 
+    return df_processed
 
 #buat Main panel
 st.subheader("Data Transaksi yang Dimasukkan")
 st.write(input_df)
 
+st.write("Final Processed Features:", processed_input.columns.tolist())
 #buat tombol Prediksi ketika ditekan
 if st.button("Predict Fraud Risk"):
     # Preprocess input
