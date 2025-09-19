@@ -83,68 +83,33 @@ input_df = user_input_features()
 #buat fungsi preprocessing
 def preprocess_input(input_df, scaler, label_encoders, model):
     df = input_df.copy()
+
+    # Ambil nama fitur persis dari model
     model_features = list(model.feature_names_in_)
 
-    # Tambahkan fitur turunan hanya jika ada di selected_features
+    # Tambahkan fitur yang hilang / default
     for col in model_features:
         if col not in df.columns:
-            if col == "Transaction_Day":
-                df[col] = 15
-            elif col == "Transaction_DayOfWeek":
-                df[col] = 3
-            elif col == "Transaction_IsNight":
-                df[col] = (df["Transaction Hour"].between(0,6).astype(int))
-            elif col == "Transaction_IsWeekend":
-                df[col] = 0
-            elif col == "Transaction_Month":
-                df[col] = 1
-            elif col == "Address_Mismatch":
-                df[col] = 0
-            elif col == "IP_FirstOctet":
-                df[col] = 0
-            elif col == "IP_SecondOctet":
-                df[col] = 0
-            elif col == "Amount_per_Item":
-                df[col] = df["Transaction Amount"] / (df["Quantity"] + 1e-6)
-            elif col == "Large_Transaction":
-                df[col] = (df["Transaction Amount"] > 500).astype(int)
-            elif col == "Transaction_Amount_Log":
-                df[col] = np.log1p(df["Transaction Amount"])
-            elif col == "Avg_Amount_Customer":
-                df[col] = 0
-            elif col == "Deviation_Amount":
-                df[col] = 0
-            elif col == "Device_Change":
-                df[col] = 0
-            elif col == "Transaction_Frequency":
-                df[col] = 0
-            elif col == "New_Customer":
-                df[col] = 0
-            elif col == "Customer Location":
-                df[col] = "unknown"
-            elif col == "Device Used":
-                df[col] = "unknown"
-            else:
-                df[col] = 0
+            df[col] = 0
 
     # Encode kategorikal
     categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
     for col in categorical_cols:
-        if col in df.columns:
-            le = label_encoders.get(col)
-            if le:
-                val = df[col].iloc[0]
-                df[col] = le.transform([val])[0] if val in le.classes_ else -1
-            else:
-                df[col] = -1
+        if col in df.columns and col in label_encoders:
+            le = label_encoders[col]
+            val = df[col].iloc[0]
+            df[col] = le.transform([val])[0] if val in le.classes_ else -1
 
     # Scale numerik
     numeric_cols = [col for col in scaler.feature_names_in_ if col in df.columns]
     if numeric_cols:
         df[numeric_cols] = scaler.transform(df[numeric_cols])
 
-    #  Filter akhir ke 20 fitur
-    df_final = df[selected_features]
+    # Pastikan semua kolom string
+    df.columns = df.columns.astype(str)
+
+    # Urutkan kolom sesuai model
+    df_final = df[model_features]
 
     return df_final
     
