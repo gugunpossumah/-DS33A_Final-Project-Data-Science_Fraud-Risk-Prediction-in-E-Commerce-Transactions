@@ -70,6 +70,8 @@ def user_input_features():
     
 #Get user input   
 input_df = user_input_features()
+st.write("Input DF:", input_df.columns.tolist())
+st.write("Expected Features:", selected_features)
 
 #buat fungsi preprocessing
 def preprocess_input(input_df, scaler, label_encoders=None):
