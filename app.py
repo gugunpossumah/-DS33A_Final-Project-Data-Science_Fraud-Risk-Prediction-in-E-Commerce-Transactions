@@ -89,14 +89,14 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
         if col not in df.columns:
             if col == "Transaction_Day":
                 df[col] = 15
-            elif col == "Transaction_Month":
-                df[col] = 1
             elif col == "Transaction_DayOfWeek":
                 df[col] = 3
-            elif col == "Transaction_IsWeekend":
-                df[col] = 0
             elif col == "Transaction_IsNight":
                 df[col] = (df["Transaction Hour"].between(0,6).astype(int))
+            elif col == "Transaction_IsWeekend":
+                df[col] = 0
+            elif col == "Transaction_Month":
+                df[col] = 1
             elif col == "Address_Mismatch":
                 df[col] = 0
             elif col == "IP_FirstOctet":
@@ -109,11 +109,27 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
                 df[col] = (df["Transaction Amount"] > 500).astype(int)
             elif col == "Transaction_Amount_Log":
                 df[col] = np.log1p(df["Transaction Amount"])
+            elif col == "Avg_Amount_Customer":
+                df[col] = 0  # default placeholder
+            elif col == "Deviation_Amount":
+                df[col] = 0  # default placeholder
+            elif col == "Device_Change":
+                df[col] = 0  # default placeholder
+            elif col == "Transaction_Frequency":
+                df[col] = 0  # default placeholder
+            elif col == "New_Customer":
+                df[col] = 0  # default placeholder
+            elif col == "Customer Location":
+                df[col] = "unknown"
+            elif col == "Device Used":
+                df[col] = "unknown"
             else:
-                df[col] = 0  # default 0 untuk fitur lain yang memang di selected_features
+                df[col] = 0  # fallback
+
 
     # Encode kategorikal
-    for col in ["Payment Method", "Product Category", "Device Used", "Customer Location"]:
+    categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
+    for col in categorical_cols:
         if col in selected_features and col in df.columns:
             le = label_encoders.get(col)
             if le:
