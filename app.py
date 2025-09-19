@@ -18,18 +18,29 @@ BASE_DIR = os.path.dirname(__file__)
 
 @st.cache_resource
 def load_model():
+    #Load model utama
     model = joblib.load(os.path.join(BASE_DIR, "fraud_detection_model.pkl"))
     preprocessing = joblib.load(os.path.join(BASE_DIR, "preprocessing_objects.joblib"))
-    return model, preprocessing
+    #kita komponen preprocessing
+    scaler = preprocessing.get('scaler', None)
+    label_encoders = preprocessing.get('label_encoders', None)
+    #kita cek apakah selected_features disimpan di dalam preprocessing
+    if 'selected_features' in preprocessing:
+        selected_features = preprocessing['selected_features']
+    else:
+        #kalau tidak ada di preprocessing, coba load dari file terpisah
+        features_path = os.path.join(BASE_DIR, "selected_features.pkl")
+        if os.path.exists(features_path):
+            selected_features = joblib.load(features_path)
+        else:
+            raise ValueError("❌ selected_features tidak ditemukan di preprocessing maupun file pkl!")
+
+    return model, scaler, label_encoders, selected_features
 try:
-    model, preprocessing = load_model()
-
-    scaler = preprocessing['scaler']
-    label_encoders = preprocessing['label_encoders']
-    selected_features = preprocessing['selected_features']
-
+    model, scaler, label_encoders, selected_features = load_model()
     st.success("Model & preprocessing berhasil dimuat!")
     st.write("Jumlah fitur yang dipakai:", len(selected_features))
+    st.write("Daftar fitur:", selected_features)
 except Exception as e:
     st.error("Model tidak ditemukan!. Pastikan file model & preprocessing ada di direktori yang sama.")
     st.stop()
