@@ -30,10 +30,15 @@ try:
     
     st.success("Model & preprocessing berhasil dimuat!")
     st.write("Jumlah fitur yang dipakai:", len(selected_features))
-    st.write("Daftar fitur lengkap:", selected_features)
+    st.write("Tipe selected_features:", type(selected_features))
+    
+    # Debug: tampilkan beberapa fitur pertama
+    st.write("Beberapa fitur pertama:", selected_features[:5])
     
 except Exception as e:
     st.error(f"Error loading model: {e}")
+    import traceback
+    st.error(f"Traceback: {traceback.format_exc()}")
     st.error("Model tidak ditemukan!. Pastikan file model & preprocessing ada di direktori yang sama.")
     st.stop()
 
