@@ -103,9 +103,8 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
             df[col] = le.transform([val])[0] if val in le.classes_ else -1
 
     # Scale numerik
-    numeric_cols = [col for col in df.columns if df[col].dtype in [int, float]]
-    if numeric_cols:
-        df[numeric_cols] = scaler.transform(df[numeric_cols])
+    numeric_cols = [col for col in selected_features if col not in categorical_cols]
+    df[numeric_cols] = scaler.transform(df[numeric_cols])
 
     # Pastikan semua kolom string
     df.columns = df.columns.map(str)
