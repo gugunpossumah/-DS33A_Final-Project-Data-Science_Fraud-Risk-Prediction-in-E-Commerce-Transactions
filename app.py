@@ -165,34 +165,38 @@ st.write(input_df)
 if st.button("Predict Fraud Risk"):
     try:
         # Preprocess input
-        processed_input = preprocess_input(input_df, scaler, label_encoders, selected_features)
+        processed_input = preprocess_input(
+            input_df, scaler, label_encoders, selected_features
+        )
+
+        # Debug check
         st.write("✅ Final Processed Features:", processed_input.columns.tolist())
-        # Debug
         st.write("Processed shape:", processed_input.shape)
-        st.write("Processed features:", processed_input.columns.tolist())
+
+        # Bandingkan dengan selected_features
+        st.write("=== DEBUG FEATURE CHECK ===")
+        st.write("Expected (selected_features):", selected_features)
+        st.write("Got from preprocessing:", processed_input.columns.tolist())
+
+        # Cek fitur yang hilang / kelebihan
+        missing = [f for f in selected_features if f not in processed_input.columns]
+        extra = [f for f in processed_input.columns if f not in selected_features]
+
+        if missing:
+            st.error(f"❌ Missing features (hilang): {missing}")
+        if extra:
+            st.warning(f"⚠️ Extra features (kelebihan): {extra}")
+
+        st.write("Final shape:", processed_input.shape)
+
         # Predict
         prediction = model.predict(processed_input)
         prediction_proba = model.predict_proba(processed_input)
 
     except Exception as e:
-        st.error(f"❌ Error saat preprocessing: {e}")
+        st.error(f"❌ Error saat preprocessing/predict: {e}")
         st.stop()
         
-st.write("=== DEBUG FEATURE CHECK ===")
-st.write("Expected (selected_features):", selected_features)
-st.write("Got from preprocessing:", processed_input.columns.tolist())
-
-# Cek fitur yang hilang atau kelebihan
-missing = [f for f in selected_features if f not in processed_input.columns]
-extra = [f for f in processed_input.columns if f not in selected_features]
-
-if missing:
-    st.error(f"❌ Missing features (hilang): {missing}")
-if extra:
-    st.warning(f"⚠️ Extra features (kelebihan): {extra}")
-
-st.write("Final shape:", processed_input.shape)
-
     # Display results
     st.subheader("Prediction Results")
     
