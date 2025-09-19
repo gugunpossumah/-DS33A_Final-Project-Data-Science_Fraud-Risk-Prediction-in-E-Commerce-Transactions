@@ -80,10 +80,10 @@ def user_input_features():
 input_df = user_input_features()
 
 #buat fungsi preprocessing
-def preprocess_input(input_df, scaler, label_encoders, selected_features, model):
+def preprocess_input(input_df, scaler, label_encoders, selected_features):
     df_processed = input_df.copy()
 
-    # Feature engineering sesuai kebutuhan
+    # Feature Engineering hanya yang dipakai
     if "Transaction_Day" in selected_features:
         df_processed["Transaction_Day"] = 15
     if "Transaction_DayOfWeek" in selected_features:
@@ -111,7 +111,7 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features, model)
     if "Transaction_Amount_Log" in selected_features:
         df_processed["Transaction_Amount_Log"] = np.log1p(df_processed["Transaction Amount"])
 
-    # Encode categorical (hanya kolom yang ada di selected_features)
+    # Encode categorical
     categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
     for col in categorical_cols:
         if col in selected_features:
@@ -135,9 +135,8 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features, model)
     if numerical_cols:
         df_processed[numerical_cols] = scaler.transform(df_processed[numerical_cols])
 
-    # ⚠️ Filter lagi biar sama persis dengan fitur model
-    final_features = list(model.feature_names_in_)
-    df_processed = df_processed[final_features]
+    # Pastikan urutan fitur sesuai training
+    df_processed = df_processed[selected_features]
 
     return df_processed
     
