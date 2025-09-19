@@ -32,7 +32,8 @@ try:
         'Customer Age', 'Customer Location', 'Account Age Days', 'Transaction Hour',
         'Transaction_Day', 'Transaction_DayOfWeek', 'Transaction_IsNight', 'Address_Mismatch',
         'IP_FirstOctet', 'IP_SecondOctet', 'Amount_per_Item', 'Large_Transaction',
-        'Transaction_Amount_Log', 'Avg_Amount_Customer', 'Deviation_Amount', 'New_Customer'
+        'Transaction_Amount_Log', 'Avg_Amount_Customer', 'Deviation_Amount', 'New_Customer',
+        'Device_Change', 'Transaction_Frequency', 'Transaction_IsWeekend', 'Transaction_Month'
     ]
 
     st.success("Model & preprocessing berhasil dimuat!")
