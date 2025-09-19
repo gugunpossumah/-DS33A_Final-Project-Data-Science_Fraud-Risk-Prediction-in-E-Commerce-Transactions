@@ -138,7 +138,7 @@ st.write(input_df)
 
 if st.button("Predict Fraud Risk"):
     try:
-        processed_input = preprocess_input(input_df, scaler, label_encoders, selected_features)
+        processed_input = preprocess_input_safe(input_df, scaler, label_encoders, selected_features)
 
         st.write("✅ Final Processed Features:", processed_input.columns.tolist())
         st.write("Processed shape:", processed_input.shape)
