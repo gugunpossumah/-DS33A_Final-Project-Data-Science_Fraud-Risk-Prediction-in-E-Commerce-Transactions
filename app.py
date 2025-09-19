@@ -86,14 +86,13 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
             df[col] = 0.0  # default
 
     # Encode kolom kategorikal
-    for col in categorical_cols:
+    for col in label_encoders.keys():
+        le = label_encoders[col]
         if col in input_df.columns:
-            le = label_encoders[col]
             val = input_df[col].iloc[0]
-            # jika value tidak ada di LabelEncoder, beri -1
             df[col] = le.transform([val])[0] if val in le.classes_ else -1
         else:
-            df[col] = -1  # default jika tidak ada input user
+            df[col] = -1  # default jika user tidak input
 
     # Scale numerik
     if numeric_cols:
