@@ -38,7 +38,7 @@ except Exception as e:
 # ---------------------------
 # Judul & deskripsi
 # ---------------------------
-st.title("⚠️ Fraud Detection System - E-Commerce Transactions")
+st.title("⚠️ Fraud Detection System E-Commerce Transactions")
 st.markdown("""
 Sistem ini memprediksi kemungkinan transaksi e-commerce merupakan fraud berdasarkan karakteristik transaksi.
 """)
