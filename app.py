@@ -109,20 +109,15 @@ def preprocess_input(data, scaler, label_encoders, selected_features):
         else:
             df_processed[col] = -1
 
-    # Pastikan semua fitur ada
-    missing_cols = [col for col in selected_features if col not in df_processed.columns]
-    for col in missing_cols:
-        df_processed[col] = 0
-
-    df_processed = df_processed[selected_features]
+    # Pastikan semua fitur sesuai dengan training
+    df = df.reindex(columns=selected_features, fill_value=0)
 
     # Scaling
-    df_processed = pd.DataFrame(
-        scaler.transform(df_processed),
+    df_scaled = pd.DataFrame(
+        scaler.transform(df),
         columns=selected_features
     )
-
-    return df_processed
+    return df_scaled
 
 
 #buat Main panel
