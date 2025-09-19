@@ -28,10 +28,6 @@ try:
     label_encoders = preprocessing['label_encoders']
     selected_features = preprocessing['selected_features'] #20 fitur hasil SelectKBest
     
-    # Convert to list if it's numpy array
-     if isinstance(selected_features, np.ndarray):
-        selected_features = selected_features.tolist()
-    
     st.success("Model & preprocessing berhasil dimuat!")
     st.write("Jumlah fitur yang dipakai:", len(selected_features))
     st.write("Daftar fitur lengkap:", selected_features)
