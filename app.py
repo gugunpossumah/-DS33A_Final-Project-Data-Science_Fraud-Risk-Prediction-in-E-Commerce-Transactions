@@ -83,20 +83,16 @@ input_df = user_input_features()
 def preprocess_input(input_df, scaler, label_encoders, selected_features):
     df = input_df.copy()
     
-    # Tambahkan kolom yang hilang
+    # Tambahkan kolom default jika hilang
     for col in selected_features:
         if col not in df.columns:
-            # Default value sesuai tipe
-            if col in ["Device_Change", "Transaction_IsWeekend", "New_Customer", "Large_Transaction"]:
-                df[col] = 0
-            elif col in ["Transaction_Frequency", "Transaction_Amount_Log", "Avg_Amount_Customer",
-                         "Deviation_Amount", "Amount_per_Item", "Transaction_Month"]:
+            if col in ["Transaction Amount", "Quantity", "Customer Age", "Account Age Days",
+                       "Transaction Hour", "Amount_per_Item", "Transaction_Amount_Log",
+                       "Avg_Amount_Customer", "Deviation_Amount"]:
                 df[col] = 0.0
-            elif col in ["Payment Method", "Product Category", "Device Used", "Customer Location"]:
-                df[col] = "unknown"
             else:
-                df[col] = 0  # fallback numerik
-    
+                df[col] = 0  # boolean / flag
+
     # Encode kategorikal
     categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
     for col in categorical_cols:
@@ -117,7 +113,7 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
     df_final = df[selected_features]
 
     return df_final
-    
+
 #buat Main panel
 st.subheader("Data Transaksi yang Dimasukkan")
 st.write(input_df)
@@ -126,7 +122,6 @@ st.write(input_df)
 if st.button("Predict Fraud Risk"):
     try:
         processed_input = preprocess_input(input_df, scaler, label_encoders, selected_features)
-
         st.write("✅ Final Processed Features:", processed_input.columns.tolist())
         st.write("Processed shape:", processed_input.shape)
 
