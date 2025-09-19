@@ -139,7 +139,9 @@ if st.button("Predict Fraud Risk"):
         # Preprocess input
         processed_input = preprocess_input(input_df, scaler, label_encoders, selected_features)
         st.write("✅ Final Processed Features:", processed_input.columns.tolist())
-
+        # Debug
+        st.write("Processed shape:", processed_input.shape)
+        st.write("Processed features:", processed_input.columns.tolist())
         # Predict
         prediction = model.predict(processed_input)
         prediction_proba = model.predict_proba(processed_input)
