@@ -21,6 +21,7 @@ def load_model():
 
 try:
     model, preprocessing = load_model()
+    st.write("Isi preprocessing:", preprocessing)  # Debug
     scaler = preprocessing['scaler']
     label_encoders = preprocessing['label_encoders']
     selected_features = preprocessing['selected_features']
