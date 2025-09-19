@@ -83,61 +83,53 @@ input_df = user_input_features()
 def preprocess_input(input_df, scaler, label_encoders, selected_features):
     df_processed = input_df.copy()
 
-    # Feature Engineering hanya yang dipakai
-    if "Transaction_Day" in selected_features:
-        df_processed["Transaction_Day"] = 15
-    if "Transaction_DayOfWeek" in selected_features:
-        df_processed["Transaction_DayOfWeek"] = 3
-    if "Transaction_IsNight" in selected_features:
-        df_processed["Transaction_IsNight"] = (
-            df_processed["Transaction Hour"].between(0, 6).astype(int)
-        )
-    if "Transaction_IsWeekend" in selected_features:
-        df_processed["Transaction_IsWeekend"] = 0
-    if "Transaction_Month" in selected_features:
-        df_processed["Transaction_Month"] = 1
-    if "Address_Mismatch" in selected_features:
-        df_processed["Address_Mismatch"] = 0
-    if "IP_FirstOctet" in selected_features:
-        df_processed["IP_FirstOctet"] = 0
-    if "IP_SecondOctet" in selected_features:
-        df_processed["IP_SecondOctet"] = 0
-    if "Amount_per_Item" in selected_features:
-        df_processed["Amount_per_Item"] = (
-            df_processed["Transaction Amount"] / (df_processed["Quantity"] + 1e-6)
-        )
-    if "Large_Transaction" in selected_features:
-        df_processed["Large_Transaction"] = (df_processed["Transaction Amount"] > 500).astype(int)
-    if "Transaction_Amount_Log" in selected_features:
-        df_processed["Transaction_Amount_Log"] = np.log1p(df_processed["Transaction Amount"])
+    # Tambahkan fitur hanya jika ada di selected_features
+    for col in selected_features:
+        if col not in df_processed.columns:
+            if col == "Transaction_Day":
+                df_processed[col] = 15
+            elif col == "Transaction_Month":
+                df_processed[col] = 1
+            elif col == "Transaction_DayOfWeek":
+                df_processed[col] = 3
+            elif col == "Transaction_IsWeekend":
+                df_processed[col] = 0
+            elif col == "Transaction_IsNight":
+                df_processed[col] = (df_processed["Transaction Hour"].between(0,6).astype(int))
+            elif col == "Address_Mismatch":
+                df_processed[col] = 0
+            elif col == "IP_FirstOctet":
+                df_processed[col] = 0
+            elif col == "IP_SecondOctet":
+                df_processed[col] = 0
+            elif col == "Amount_per_Item":
+                df_processed[col] = df_processed["Transaction Amount"] / (df_processed["Quantity"] + 1e-6)
+            elif col == "Large_Transaction":
+                df_processed[col] = (df_processed["Transaction Amount"] > 500).astype(int)
+            elif col == "Transaction_Amount_Log":
+                df_processed[col] = np.log1p(df_processed["Transaction Amount"])
+            else:
+                # placeholder default 0 untuk fitur lain
+                df_processed[col] = 0
 
-    # Encode categorical
-    categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
-    for col in categorical_cols:
+    # Encode categorical hanya jika ada di selected_features
+    for col in ["Payment Method", "Product Category", "Device Used", "Customer Location"]:
         if col in selected_features:
-            if col in df_processed.columns and col in label_encoders:
+            if col in label_encoders:
                 le = label_encoders[col]
                 val = df_processed[col].iloc[0]
-                if val in le.classes_:
-                    df_processed[col] = le.transform([val])[0]
-                else:
-                    df_processed[col] = -1
+                df_processed[col] = le.transform([val])[0] if val in le.classes_ else -1
             else:
                 df_processed[col] = -1
 
-    # Lengkapi missing features
-    for col in selected_features:
-        if col not in df_processed.columns:
-            df_processed[col] = 0
+    # Scale numerik jika ada
+    numeric_cols = [col for col in scaler.feature_names_in_ if col in selected_features]
+    if numeric_cols:
+        df_processed[numeric_cols] = scaler.transform(df_processed[numeric_cols])
 
-    # Scaling numeric sesuai training
-    numerical_cols = [col for col in scaler.feature_names_in_ if col in selected_features]
-    if numerical_cols:
-        df_processed[numerical_cols] = scaler.transform(df_processed[numerical_cols])
-
-    # Pastikan urutan fitur sesuai training
+    # Pastikan urutan kolom sesuai selected_features
     df_processed = df_processed[selected_features]
-    
+
     return df_processed
     
 #buat Main panel
