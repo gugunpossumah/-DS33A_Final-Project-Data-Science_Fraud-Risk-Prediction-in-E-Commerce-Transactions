@@ -66,58 +66,44 @@ def user_input_features():
 input_df = user_input_features()
 
 #buat fungsi preprocessing
-def preprocess_input(data, scaler, label_encoders, selected_features):
-    df_processed = data.copy()
+def preprocess_input(input_df, scaler, label_encoders=None):
+    data = input_df.copy()
 
-    # Fitur waktu (dummy)
-    df_processed['Transaction_Day'] = 15
-    df_processed['Transaction_Month'] = 6
-    df_processed['Transaction_DayOfWeek'] = 3
-    df_processed['Transaction_IsWeekend'] = 0
+    #kita buat Feature Engineering yang dipakai saat training
+    if "Transaction Date" in data.columns:
+        data["Transaction_Day"] = pd.to_datetime(data["Transaction Date"]).dt.day
+        data["Transaction_Month"] = pd.to_datetime(data["Transaction Date"]).dt.month
+        data["Transaction_DayOfWeek"] = pd.to_datetime(data["Transaction Date"]).dt.dayofweek
+        data["Transaction_IsWeekend"] = data["Transaction_DayOfWeek"].isin([5,6]).astype(int)
+        data["Transaction_IsNight"] = data["Transaction Hour"].between(0, 6).astype(int)
 
-    # IsNight dari Transaction Hour
-    df_processed['Transaction_IsNight'] = (
-        (df_processed['Transaction Hour'] >= 0) & (df_processed['Transaction Hour'] <= 6)
-    ).astype(int)
+    if "Billing Address" in data.columns and "Shipping Address" in data.columns:
+        data["Address_Mismatch"] = (data["Billing Address"] != data["Shipping Address"]).astype(int)
 
-    # Address mismatch & IP (dummy)
-    df_processed['Address_Mismatch'] = 0
-    df_processed['IP_FirstOctet'] = 0
-    df_processed['IP_SecondOctet'] = 0
+    if "IP Address" in data.columns:
+        data["IP_FirstOctet"] = data["IP Address"].str.split(".").str[0].astype(int)
+        data["IP_SecondOctet"] = data["IP Address"].str.split(".").str[1].astype(int)
 
-    # Amount-based
-    df_processed['Amount_per_Item'] = df_processed['Transaction Amount'] / (df_processed['Quantity'] + 1e-6)
-    df_processed['Large_Transaction'] = (df_processed['Transaction Amount'] > 500).astype(int)
-    df_processed['Transaction_Amount_Log'] = np.log1p(df_processed['Transaction Amount'])
+    if "Transaction Amount" in data.columns and "Quantity" in data.columns:
+        data["Amount_per_Item"] = data["Transaction Amount"] / data["Quantity"]
+        data["Large_Transaction"] = (data["Transaction Amount"] > 500).astype(int)
+        data["Transaction_Amount_Log"] = np.log1p(data["Transaction Amount"])
 
-    # Customer behavior (dummy)
-    df_processed['Avg_Amount_Customer'] = df_processed['Transaction Amount']
-    df_processed['Deviation_Amount'] = 1.0
+    # Dummy contoh agregasi customer
+    if "Customer ID" in data.columns and "Transaction Amount" in data.columns:
+        data["Transaction_Frequency"] = 1  # default jika 1 transaksi
+        data["Avg_Amount_Customer"] = data["Transaction Amount"]
+        data["Deviation_Amount"] = 0
 
-    # New customer
-    df_processed['New_Customer'] = (df_processed['Account Age Days'] < 30).astype(int)
+    if "Device Used" in data.columns:
+        data["Device_Change"] = 0
+    data["New_Customer"] = 0
 
-    # Encode categorical
-    categorical_cols = ['Payment Method', 'Product Category', 'Device Used']
-    for col in categorical_cols:
-        if col in label_encoders:
-            le = label_encoders[col]
-            if df_processed[col].iloc[0] in le.classes_:
-                df_processed[col] = le.transform([df_processed[col].iloc[0]])[0]
-            else:
-                df_processed[col] = -1
-        else:
-            df_processed[col] = -1
+    # Scale numerical features sesuai training ---
+    numerical_cols = scaler.feature_names_in_
+    data[numerical_cols] = scaler.transform(data[numerical_cols])
 
-    # Pastikan semua fitur sesuai dengan training
-    df = df.reindex(columns=selected_features, fill_value=0)
-
-    # Scaling
-    df_scaled = pd.DataFrame(
-        scaler.transform(df),
-        columns=selected_features
-    )
-    return df_scaled
+    return data[scaler.feature_names_in_]
 
 
 #buat Main panel
