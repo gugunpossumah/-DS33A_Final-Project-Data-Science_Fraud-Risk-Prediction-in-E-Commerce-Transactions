@@ -74,28 +74,32 @@ input_df = user_input_features()
 def preprocess_input(input_df, scaler, label_encoders, selected_features):
     df = pd.DataFrame(0, index=[0], columns=selected_features)  # DataFrame kosong 0
     
-    #kita masukkan kolom numerik user
-    numeric_cols = [c for c in selected_features if c not in label_encoders.keys()]
+    # Pisahkan kolom numerik dan kategorikal
+    categorical_cols = list(label_encoders.keys())
+    numeric_cols = [c for c in selected_features if c not in categorical_cols]
+
+    # Masukkan nilai numerik dari input user
     for col in numeric_cols:
         if col in input_df.columns:
             df[col] = input_df[col]
 
-    # Encode input kategorikal sesuai LabelEncoder
-    for col in label_encoders.keys():
+    # Encode kolom kategorikal
+    for col in categorical_cols:
         if col in input_df.columns:
             le = label_encoders[col]
             val = input_df[col].iloc[0]
             df[col] = le.transform([val])[0] if val in le.classes_ else -1
         else:
-            # Jika user tidak mengisi, beri default -1
-            df[col] = -1
+            df[col] = -1  # default jika user tidak memilih
 
-    # Scale numerik
-    num_cols_to_scale = [c for c in numeric_cols if c in df.columns]
-    if num_cols_to_scale:
-        df[num_cols_to_scale] = scaler.transform(df[num_cols_to_scale])
+    # Scale kolom numerik
+    if numeric_cols:
+        df[numeric_cols] = scaler.transform(df[numeric_cols])
 
-    return df[selected_features]  # pastikan urutannya sesuai training
+    # Urutkan kolom sesuai selected_features
+    df_final = df[selected_features]
+
+    return df_final
 
 #buat Main panel
 st.subheader("Data Transaksi yang Dimasukkan")
