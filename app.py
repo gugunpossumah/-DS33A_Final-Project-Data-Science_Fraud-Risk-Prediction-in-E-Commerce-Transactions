@@ -161,7 +161,7 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
             df_processed[col] = 0
 
     #Scaling numeric sesuai training
-    numerical_cols = scaler.feature_names_in_
+    numerical_cols = [col for col in scaler.feature_names_in_ if col in selected_features]
     df_processed[numerical_cols] = scaler.transform(df_processed[numerical_cols])
 
     #diurutkan sesuai training
