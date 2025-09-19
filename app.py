@@ -27,12 +27,7 @@ try:
 
     scaler = preprocessing['scaler']
     label_encoders = preprocessing['label_encoders']
-
-    # Override selected_features dengan fitur yang dipakai model
-    if hasattr(model, "feature_names_in_"):
-        selected_features = list(model.feature_names_in_)
-    else:
-        selected_features = preprocessing['selected_features']
+    selected_features = preprocessing['selected_features']
 
     st.success("Model & preprocessing berhasil dimuat!")
     st.write("Jumlah fitur yang dipakai:", len(selected_features))
