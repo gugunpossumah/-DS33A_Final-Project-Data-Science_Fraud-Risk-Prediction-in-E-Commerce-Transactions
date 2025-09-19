@@ -34,30 +34,6 @@ except Exception as e:
     st.error("Model tidak ditemukan!. Pastikan file model & preprocessing ada di direktori yang sama.")
     st.stop()
 
-#fitur yang dipakai
-selected_features = [
-    'Transaction Amount',
-    'Payment Method',
-    'Product Category',
-    'Quantity',
-    'Customer Age',
-    'Customer Location',
-    'Account Age Days',
-    'Transaction Hour',
-    'Transaction_Day',
-    'Transaction_DayOfWeek',
-    'Transaction_IsNight',
-    'Address_Mismatch',
-    'IP_FirstOctet',
-    'IP_SecondOctet',
-    'Amount_per_Item',
-    'Large_Transaction',
-    'Transaction_Amount_Log',
-    'Avg_Amount_Customer',
-    'Deviation_Amount',
-    'New_Customer'
-]
-
 #buat judul
 st.title("⚠️ Fraud Detection System - E-Commerce Transactions")
 st.markdown("""
@@ -113,6 +89,12 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
             df_processed["Transaction Hour"].between(0, 6).astype(int)
         )
 
+    if "Transaction_IsWeekend" in selected_features:
+        df_processed["Transaction_IsWeekend"] = 0  # default: bukan weekend
+
+    if "Transaction_Month" in selected_features:
+        df_processed["Transaction_Month"] = 1  # default: Januari
+
     if "Address_Mismatch" in selected_features:
         df_processed["Address_Mismatch"] = 0
 
@@ -140,6 +122,12 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
 
     if "New_Customer" in selected_features:
         df_processed["New_Customer"] = (df_processed["Account Age Days"] < 30).astype(int)
+
+    if "Device_Change" in selected_features:
+        df_processed["Device_Change"] = 0  # default: tidak ganti device
+
+    if "Transaction_Frequency" in selected_features:
+        df_processed["Transaction_Frequency"] = 1  # default: 1 transaksi
 
     #Encode categorical (hanya kolom yang ada di selected_features)
     categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
