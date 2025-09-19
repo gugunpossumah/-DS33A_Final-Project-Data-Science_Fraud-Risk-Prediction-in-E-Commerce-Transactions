@@ -27,7 +27,13 @@ try:
 
     scaler = preprocessing['scaler']
     label_encoders = preprocessing['label_encoders']
-    selected_features = preprocessing['selected_features']
+    selected_features = [
+        'Transaction Amount', 'Payment Method', 'Product Category', 'Quantity',
+        'Customer Age', 'Customer Location', 'Account Age Days', 'Transaction Hour',
+        'Transaction_Day', 'Transaction_DayOfWeek', 'Transaction_IsNight', 'Address_Mismatch',
+        'IP_FirstOctet', 'IP_SecondOctet', 'Amount_per_Item', 'Large_Transaction',
+        'Transaction_Amount_Log', 'Avg_Amount_Customer', 'Deviation_Amount', 'New_Customer'
+    ]
 
     st.success("Model & preprocessing berhasil dimuat!")
     st.write("Jumlah fitur yang dipakai:", len(selected_features))
@@ -121,7 +127,7 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
     if numeric_cols:
         df[numeric_cols] = scaler.transform(df[numeric_cols])
 
-    # **Filter akhir ke selected_features** (20 kolom)
+    #  Filter akhir ke 20 fitur
     df_final = df[selected_features]
 
     return df_final
@@ -133,20 +139,11 @@ st.write(input_df)
 #buat tombol Prediksi ketika ditekan
 if st.button("Predict Fraud Risk"):
     try:
-        # Preprocess input
-        processed_input = preprocess_input(
-            input_df, scaler, label_encoders, selected_features)
+        processed_input = preprocess_input(input_df, scaler, label_encoders, selected_features)
 
-        # Debug check
         st.write("✅ Final Processed Features:", processed_input.columns.tolist())
         st.write("Processed shape:", processed_input.shape)
 
-        # Bandingkan dengan selected_features
-        st.write("--DEBUG FEATURE CHECK--")
-        st.write("Expected (selected_features):", selected_features)
-        st.write("Got from preprocessing:", processed_input.columns.tolist())
-
-        # Predict
         prediction = model.predict(processed_input)
         prediction_proba = model.predict_proba(processed_input)
 
