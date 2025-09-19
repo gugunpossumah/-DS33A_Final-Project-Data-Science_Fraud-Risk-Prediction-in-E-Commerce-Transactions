@@ -105,26 +105,27 @@ def preprocess_input(df, scaler, label_encoders, selected_features):
     df_processed['Large_Transaction'] = (df_processed['Transaction Amount'] > 500).astype(int)
     df_processed['Transaction_Amount_Log'] = np.log1p(df_processed['Transaction Amount'])
 
-    # Behavioral features
-    df_processed['Transaction_Frequency'] = 1  # dummy, karena kita tidak punya history di Streamlit
-    df_processed['Avg_Amount_Customer'] = df_processed['Transaction Amount']  # dummy
-    df_processed['Deviation_Amount'] = 0  # dummy
-    df_processed['Device_Change'] = 0  # dummy
-    df_processed['New_Customer'] = (df_processed['Account Age Days'] < 30).astype(int)
+    # Behavioral features: hanya dummy yang ada di selected_features
+    for col in ['Transaction_Frequency', 'Avg_Amount_Customer', 'Deviation_Amount', 'Device_Change', 'New_Customer']:
+        if col in selected_features:
+            if col == 'New_Customer':
+                df_processed[col] = (df_processed['Account Age Days'] < 30).astype(int)
+            else:
+                df_processed[col] = 0
 
-    # Encode categorical
+    # Encode categorical hanya yang ada di selected_features
     categorical_cols = ['Payment Method', 'Product Category', 'Device Used', 'Customer Location']
     for col in categorical_cols:
-        if col in df_processed.columns and col in label_encoders:
+        if col in selected_features and col in df_processed.columns and col in label_encoders:
             le = label_encoders[col]
             val = df_processed[col].iloc[0]
             df_processed[col] = le.transform([val])[0] if val in le.classes_ else -1
 
-    # Drop kolom yang tidak dipakai model
+    # Drop kolom yang tidak dipakai
     drop_cols = ['Transaction Date', 'Shipping Address', 'Billing Address', 'IP Address', 'Transaction Hour']
     df_processed = df_processed.drop(columns=[col for col in drop_cols if col in df_processed.columns], errors='ignore')
 
-    # Tambahkan fitur hilang untuk selected_features
+    # Tambahkan kolom hilang yang ada di selected_features
     for col in selected_features:
         if col not in df_processed.columns:
             df_processed[col] = 0
@@ -133,9 +134,6 @@ def preprocess_input(df, scaler, label_encoders, selected_features):
     num_cols = [col for col in scaler.feature_names_in_ if col in df_processed.columns]
     if num_cols:
         df_processed[num_cols] = scaler.transform(df_processed[num_cols])
-
-    # Pastikan semua kolom string
-    df_processed.columns = df_processed.columns.astype(str)
 
     # Urutkan sesuai selected_features
     df_final = df_processed[selected_features]
