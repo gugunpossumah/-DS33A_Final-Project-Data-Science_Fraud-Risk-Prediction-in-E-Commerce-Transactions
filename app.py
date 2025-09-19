@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import pickle
 import joblib
+import os
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 
 #kita set page config
@@ -13,10 +14,12 @@ st.set_page_config(
 )
 
 #kita load model dan preprocessing objects
+BASE_DIR = os.path.dirname(__file__)
+
 @st.cache_resource
 def load_model():
-    model = joblib.load('fraud_detection_model.pkl')
-    preprocessing = joblib.load('preprocessing_objects.joblib')
+    model = joblib.load(os.path.join(BASE_DIR, "fraud_detection_model.pkl"))
+    preprocessing = joblib.load(os.path.join(BASE_DIR, "preprocessing_objects.joblib"))
     return model, preprocessing
 try:
     model, preprocessing = load_model()
