@@ -83,16 +83,19 @@ input_df = user_input_features()
 def preprocess_input(input_df, scaler, label_encoders, selected_features):
     df = input_df.copy()
     
-    # Tambahkan semua kolom yang hilang
+    # Tambahkan kolom yang hilang
     for col in selected_features:
         if col not in df.columns:
+            # Default value sesuai tipe
             if col in ["Device_Change", "Transaction_IsWeekend", "New_Customer", "Large_Transaction"]:
                 df[col] = 0
             elif col in ["Transaction_Frequency", "Transaction_Amount_Log", "Avg_Amount_Customer",
-                         "Deviation_Amount", "Amount_per_Item"]:
+                         "Deviation_Amount", "Amount_per_Item", "Transaction_Month"]:
                 df[col] = 0.0
+            elif col in ["Payment Method", "Product Category", "Device Used", "Customer Location"]:
+                df[col] = "unknown"
             else:
-                df[col] = 0  # fallback numerik default
+                df[col] = 0  # fallback numerik
     
     # Encode kategorikal
     categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
@@ -101,16 +104,16 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
             le = label_encoders[col]
             val = df[col].iloc[0]
             df[col] = le.transform([val])[0] if val in le.classes_ else -1
-    
+
     # Scale numerik
     numeric_cols = [col for col in df.columns if df[col].dtype in [int, float]]
     if numeric_cols:
         df[numeric_cols] = scaler.transform(df[numeric_cols])
-    
+
     # Pastikan semua kolom string
     df.columns = df.columns.map(str)
     
-    # Urutkan kolom persis seperti selected_features
+    # Urutkan kolom sesuai selected_features
     df_final = df[selected_features]
 
     return df_final
