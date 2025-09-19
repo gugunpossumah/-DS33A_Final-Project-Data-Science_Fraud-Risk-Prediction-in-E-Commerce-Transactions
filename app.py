@@ -88,7 +88,7 @@ st.write("Expected Features:", selected_features)
 def preprocess_input(input_df, scaler, label_encoders, selected_features):
     df_processed = input_df.copy()
 
-    #Feature Engineering hanya untuk fitur yang dipakai model
+    #Feature Engineering yang ada di selected_features
     if "Transaction_Day" in selected_features:
         df_processed["Transaction_Day"] = 15
 
@@ -99,12 +99,6 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
         df_processed["Transaction_IsNight"] = (
             df_processed["Transaction Hour"].between(0, 6).astype(int)
         )
-
-    if "Transaction_IsWeekend" in selected_features:
-        df_processed["Transaction_IsWeekend"] = 0
-
-    if "Transaction_Month" in selected_features:
-        df_processed["Transaction_Month"] = 1
 
     if "Address_Mismatch" in selected_features:
         df_processed["Address_Mismatch"] = 0
@@ -134,14 +128,8 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
     if "New_Customer" in selected_features:
         df_processed["New_Customer"] = (df_processed["Account Age Days"] < 30).astype(int)
 
-    if "Device_Change" in selected_features:
-        df_processed["Device_Change"] = 0
-
-    if "Transaction_Frequency" in selected_features:
-        df_processed["Transaction_Frequency"] = 1
-
-    #Encode categorical (hanya kolom yang ada di selected_features)
-    categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
+    #Encode categorical
+    categorical_cols = ["Payment Method", "Product Category", "Customer Location"]
     for col in categorical_cols:
         if col in selected_features:
             if col in df_processed.columns and col in label_encoders:
@@ -154,7 +142,7 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
             else:
                 df_processed[col] = -1
 
-    #kita lengkapi missing features (yang ada di selected_features)
+    #Tambahkan fitur yg belum ada (isi default 0)
     for col in selected_features:
         if col not in df_processed.columns:
             df_processed[col] = 0
@@ -163,7 +151,7 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
     numerical_cols = [col for col in scaler.feature_names_in_ if col in selected_features]
     df_processed[numerical_cols] = scaler.transform(df_processed[numerical_cols])
 
-    #diurutkan sesuai training
+    #kita urutkan sesuai training
     df_processed = df_processed[selected_features]
 
     return df_processed
