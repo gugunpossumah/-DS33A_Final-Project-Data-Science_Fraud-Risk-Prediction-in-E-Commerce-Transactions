@@ -76,7 +76,7 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
     df = pd.DataFrame(0, index=[0], columns=selected_features)
 
     # Pisahkan kolom kategorikal dan numerik
-    numeric_cols = [c for c in selected_features if c not in categorical_cols]
+    numeric_cols = [c for c in selected_features if c not in abel_encoders.keys()]
 
     # Masukkan nilai numerik dari input user
     for col in numeric_cols:
