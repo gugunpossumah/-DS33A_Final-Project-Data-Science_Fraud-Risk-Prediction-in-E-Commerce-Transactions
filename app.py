@@ -126,7 +126,7 @@ if st.button("Predict Fraud Risk"):
     try:
         # Preprocess input
         processed_input = preprocess_input(
-            input_df, scaler, label_encoders, selected_features
+            input_df, scaler, label_encoders, selected_features, model
         )
 
         # Debug check
@@ -134,20 +134,9 @@ if st.button("Predict Fraud Risk"):
         st.write("Processed shape:", processed_input.shape)
 
         # Bandingkan dengan selected_features
-        st.write("=== DEBUG FEATURE CHECK ===")
+        st.write("--DEBUG FEATURE CHECK--")
         st.write("Expected (selected_features):", selected_features)
         st.write("Got from preprocessing:", processed_input.columns.tolist())
-
-        # Cek fitur yang hilang / kelebihan
-        missing = [f for f in selected_features if f not in processed_input.columns]
-        extra = [f for f in processed_input.columns if f not in selected_features]
-
-        if missing:
-            st.error(f"❌ Missing features (hilang): {missing}")
-        if extra:
-            st.warning(f"⚠️ Extra features (kelebihan): {extra}")
-
-        st.write("Final shape:", processed_input.shape)
 
         # Predict
         prediction = model.predict(processed_input)
