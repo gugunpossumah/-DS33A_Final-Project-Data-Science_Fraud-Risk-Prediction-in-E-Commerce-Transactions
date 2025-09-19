@@ -133,15 +133,20 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
 st.subheader("Data Transaksi yang Dimasukkan")
 st.write(input_df)
 
-st.write("Final Processed Features:", processed_input.columns.tolist())
 #buat tombol Prediksi ketika ditekan
 if st.button("Predict Fraud Risk"):
-    # Preprocess input
-    processed_input = preprocess_input(input_df, scaler, label_encoders, selected_features)
-    
-    # Predict
-    prediction = model.predict(processed_input)
-    prediction_proba = model.predict_proba(processed_input)
+    try:
+        # Preprocess input
+        processed_input = preprocess_input(input_df, scaler, label_encoders, selected_features)
+        st.write("✅ Final Processed Features:", processed_input.columns.tolist())
+
+        # Predict
+        prediction = model.predict(processed_input)
+        prediction_proba = model.predict_proba(processed_input)
+
+    except Exception as e:
+        st.error(f"❌ Error saat preprocessing: {e}")
+        st.stop()
     
     # Display results
     st.subheader("Prediction Results")
