@@ -75,20 +75,25 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
     df = pd.DataFrame(0, index=[0], columns=selected_features)  # DataFrame kosong 0
     
     #kita masukkan kolom numerik user
-    for col in ['Transaction Amount','Quantity','Customer Age','Account Age Days','Transaction Hour']:
+    numeric_cols = [c for c in selected_features if c not in label_encoders.keys()]
+    for col in numeric_cols:
         if col in input_df.columns:
             df[col] = input_df[col]
 
-    # Encode input kategorikal
-    for col in ['Payment Method','Product Category','Device Used']:
-        if col in input_df.columns and col in label_encoders:
+    # Encode input kategorikal sesuai LabelEncoder
+    for col in label_encoders.keys():
+        if col in input_df.columns:
             le = label_encoders[col]
             val = input_df[col].iloc[0]
             df[col] = le.transform([val])[0] if val in le.classes_ else -1
+        else:
+            # Jika user tidak mengisi, beri default -1
+            df[col] = -1
 
     # Scale numerik
-    numeric_cols = [c for c in df.columns if c not in ['Payment Method','Product Category','Device Used']]
-    df[numeric_cols] = scaler.transform(df[numeric_cols])
+    num_cols_to_scale = [c for c in numeric_cols if c in df.columns]
+    if num_cols_to_scale:
+        df[num_cols_to_scale] = scaler.transform(df[num_cols_to_scale])
 
     return df[selected_features]  # pastikan urutannya sesuai training
 
