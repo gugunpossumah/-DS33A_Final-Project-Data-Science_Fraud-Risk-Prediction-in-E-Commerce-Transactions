@@ -80,23 +80,13 @@ def user_input_features():
 input_df = user_input_features()
 
 #buat fungsi preprocessing
-def preprocess_input(input_df, scaler, label_encoders, model):
+def preprocess_input(input_df, scaler, label_encoders, selected_features):
     df = input_df.copy()
-
-    # Ambil nama fitur model
-    model_features = list(model.feature_names_in_)
-
-    # Tambahkan fitur yang hilang / default
-    for col in model_features:
+    
+    # Tambahkan kolom yang hilang
+    for col in selected_features:
         if col not in df.columns:
-            if col in ["Transaction_IsNight", "Large_Transaction", "Transaction_IsWeekend", "Device_Change", "New_Customer"]:
-                df[col] = 0
-            elif col in ["Amount_per_Item", "Transaction_Amount_Log", "Deviation_Amount", "Avg_Amount_Customer", "Transaction_Frequency"]:
-                df[col] = 0.0
-            elif col in ["Device Used", "Customer Location", "Payment Method", "Product Category"]:
-                df[col] = "unknown"
-            else:
-                df[col] = 0
+            df[col] = 0  # atau default value sesuai tipe
 
     # Encode kategorikal
     categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
@@ -107,20 +97,15 @@ def preprocess_input(input_df, scaler, label_encoders, model):
             df[col] = le.transform([val])[0] if val in le.classes_ else -1
 
     # Scale numerik
-    numeric_cols = [col for col in scaler.feature_names_in_ if col in df.columns]
+    numeric_cols = [col for col in df.columns if df[col].dtype in [int, float]]
     if numeric_cols:
         df[numeric_cols] = scaler.transform(df[numeric_cols])
 
-    # Pastikan semua nama kolom string
+    # Pastikan kolom string
     df.columns = df.columns.map(str)
-
-    # Pastikan semua nilai numerik bertipe float/int
-    for col in df.columns:
-        if df[col].dtype == object:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-
-    # Urutkan kolom persis seperti model
-    df_final = df[model_features]
+    
+    # Urutkan kolom persis seperti selected_features
+    df_final = df[selected_features]
 
     return df_final
     
