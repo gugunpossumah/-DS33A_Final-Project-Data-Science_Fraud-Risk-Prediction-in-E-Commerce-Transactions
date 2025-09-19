@@ -78,13 +78,17 @@ input_df = user_input_features()
 def preprocess_input(input_df, scaler, label_encoders, selected_features):
     df = input_df.copy()
 
-    # Feature engineering: hanya buat kolom yang ada di selected_features
+    #'Transaction Hour' untuk hitung Transaction_IsNight
+    transaction_hour = df['Transaction Hour'].iloc[0]
+
+    if 'Transaction_IsNight' in selected_features:
+        df['Transaction_IsNight'] = int(0 <= transaction_hour <= 6)
+
+    # Buat fitur lain hanya jika ada di selected_features
     if 'Transaction_Day' in selected_features:
         df['Transaction_Day'] = 15
     if 'Transaction_DayOfWeek' in selected_features:
         df['Transaction_DayOfWeek'] = 3
-    if 'Transaction_IsNight' in selected_features:
-        df['Transaction_IsNight'] = ((df['Transaction Hour'] >= 0) & (df['Transaction Hour'] <= 6)).astype(int)
     if 'Address_Mismatch' in selected_features:
         df['Address_Mismatch'] = 0
     if 'IP_FirstOctet' in selected_features:
@@ -94,7 +98,7 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
     if 'Amount_per_Item' in selected_features:
         df['Amount_per_Item'] = df['Transaction Amount'] / (df['Quantity'] + 1e-6)
     if 'Large_Transaction' in selected_features:
-        df['Large_Transaction'] = (df['Transaction Amount'] > 500).astype(int)
+        df['Large_Transaction'] = int(df['Transaction Amount'] > 500)
     if 'Transaction_Amount_Log' in selected_features:
         df['Transaction_Amount_Log'] = np.log1p(df['Transaction Amount'])
     if 'Avg_Amount_Customer' in selected_features:
@@ -102,7 +106,7 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
     if 'Deviation_Amount' in selected_features:
         df['Deviation_Amount'] = 0
     if 'New_Customer' in selected_features:
-        df['New_Customer'] = (df['Account Age Days'] < 30).astype(int)
+        df['New_Customer'] = int(df['Account Age Days'].iloc[0] < 30)
 
     # Encode categorical
     for col in ['Payment Method', 'Product Category', 'Customer Location', 'Device Used']:
@@ -111,19 +115,18 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
             val = df[col].iloc[0]
             df[col] = le.transform([val])[0] if val in le.classes_ else -1
 
-    # Scale numerik
+    # Scaling numerik
     num_cols = [col for col in scaler.feature_names_in_ if col in df.columns and col in selected_features]
     if num_cols:
         df[num_cols] = scaler.transform(df[num_cols])
 
-    # Tambahkan kolom yang hilang di selected_features
+    # Tambahkan kolom yang hilang
     for col in selected_features:
         if col not in df.columns:
             df[col] = 0
 
-    # Urutkan sesuai selected_features
+    # Hanya kolom final yang dilihat model
     return df[selected_features]
-
 
 # ------------------------
 # Main panel
