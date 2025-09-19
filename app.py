@@ -86,17 +86,20 @@ def preprocess_input(data, scaler, label_encoders):
                 data_processed[col] = 0
         else:
             data_processed[col] = 0
+
+    # Ambil hanya kolom numerik, pastikan urutan sesuai scaler
+    if hasattr(scaler, "feature_names_in_"):
+        numerical_data = data_processed[scaler.feature_names_in_]
+    else:
+        numerical_data = data_processed[numerical_cols]
     
-    # Pastikan hanya kolom numerik yang di-scale
-    numerical_data = data_processed[numerical_cols]
-    
-    # Scale numerical features
+    # Transform numerik
     scaled_numerical = scaler.transform(numerical_data)
     
-    # Gabungkan kembali dengan categorical features
-    data_processed[numerical_cols] = scaled_numerical
+    # Replace hasil scaling
+    data_processed[numerical_data.columns] = scaled_numerical
     
-    # Urutkan kolom sesuai dengan yang diharapkan model
+    # Urutkan sesuai training
     expected_columns = numerical_cols + categorical_cols
     data_processed = data_processed[expected_columns]
     
