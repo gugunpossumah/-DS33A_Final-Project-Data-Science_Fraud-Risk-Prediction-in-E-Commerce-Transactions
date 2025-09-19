@@ -24,7 +24,7 @@ try:
     st.write("Isi preprocessing:", preprocessing)  # Debug
     scaler = preprocessing['scaler']
     label_encoders = preprocessing['label_encoders']
-    selected_features = preprocessing['selected_features']
+    selected_features = preprocessing.get('selected_features', None)
 except:
     st.error("Model tidak ditemukan!. Pastikan file model & preprocessing ada di direktori yang sama.")
     st.stop()
