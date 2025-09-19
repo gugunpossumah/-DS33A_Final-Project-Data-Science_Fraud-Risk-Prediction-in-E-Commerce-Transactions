@@ -83,20 +83,23 @@ input_df = user_input_features()
 def preprocess_input(input_df, scaler, label_encoders, selected_features):
     df = input_df.copy()
 
-    # Pastikan semua kolom kategorikal di-encode
+    # Encode categorical
     for col, le in label_encoders.items():
         if col in df.columns:
             try:
                 df[col] = le.transform(df[col].astype(str))
             except ValueError:
-                # Kalau ada kategori baru yang tidak dikenal, kasih default
                 unknown_label = -1
                 df[col] = df[col].apply(lambda x: le.transform([x])[0] if x in le.classes_ else unknown_label)
 
-    # Reindex supaya sesuai urutan model
+    # Reindex ke semua kolom (25 kolom penuh)
     df = df.reindex(columns=selected_features, fill_value=0)
 
-    # Scale hanya kolom numerik
+    #ambil hanya fitur yang dipakai model
+    model_features = model.feature_names_in_ if hasattr(model, "feature_names_in_") else selected_features[:20]
+    df = df[model_features]
+
+    # Scale hanya numerik
     numeric_cols = df.select_dtypes(include=["int64", "float64"]).columns
     df[numeric_cols] = scaler.transform(df[numeric_cols])
 
