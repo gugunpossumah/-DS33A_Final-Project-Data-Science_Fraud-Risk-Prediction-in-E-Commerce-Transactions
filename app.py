@@ -27,10 +27,13 @@ try:
     scaler = preprocessing['scaler']
     label_encoders = preprocessing['label_encoders']
     selected_features = preprocessing['selected_features'] #20 fitur hasil SelectKBest
-
+    
     st.success("Model & preprocessing berhasil dimuat!")
     st.write("Jumlah fitur yang dipakai:", len(selected_features))
+    st.write("Daftar fitur lengkap:", selected_features.tolist())
+    
 except Exception as e:
+    st.error(f"Error loading model: {e}")
     st.error("Model tidak ditemukan!. Pastikan file model & preprocessing ada di direktori yang sama.")
     st.stop()
 
@@ -40,77 +43,79 @@ st.markdown("""
 Sistem ini memprediksi kemungkinan transaksi e-commerce merupakan fraud berdasarkan karakteristik transaksi.
 """)
 
+# Tampilkan semua fitur yang diperlukan
+st.sidebar.header("Daftar Fitur yang Diperlukan")
+st.sidebar.write("Total fitur:", len(selected_features))
+st.sidebar.write("Fitur kategorikal:", [col for col in selected_features if col in label_encoders])
+st.sidebar.write("Fitur numerik:", [col for col in selected_features if col not in label_encoders])
+
 #buat Sidebar untuk input data
 st.sidebar.header("Input Data Transaksi")
 
-#buat Fungsi untuk input data
+# Identifikasi semua fitur yang diperlukan
+categorical_features = [col for col in selected_features if col in label_encoders]
+numerical_features = [col for col in selected_features if col not in label_encoders]
+
+#buat Fungsi untuk input data yang lengkap
 def user_input_features():
-    # Input untuk fitur-fitur yang disebutkan dalam error
     input_data = {}
     
-    # Fitur numerik
-    input_data['Transaction Amount'] = st.sidebar.number_input("Transaction Amount", min_value=0.0, value=100.0)
-    input_data['Quantity'] = st.sidebar.slider("Quantity", 1, 5, 2)
-    input_data['Customer Age'] = st.sidebar.slider("Customer Age", 18, 100, 35)
-    input_data['Account Age Days'] = st.sidebar.slider("Account Age Days", 1, 365, 180)
-    input_data['Transaction Hour'] = st.sidebar.slider("Transaction Hour", 0, 23, 12)
+    # Buat input untuk setiap fitur kategorikal
+    for feature in categorical_features:
+        if feature in label_encoders:
+            classes = label_encoders[feature].classes_
+            input_data[feature] = st.sidebar.selectbox(f"{feature}", classes, index=0)
     
-    # Fitur kategorikal dari error message
-    input_data['Payment Method'] = st.sidebar.selectbox("Payment Method", ['credit card', 'debit card', 'bank transfer', 'PayPal'])
-    input_data['Product Category'] = st.sidebar.selectbox("Product Category", ['electronics', 'clothing', 'home & garden', 'books', 'beauty'])
-    input_data['Device Used'] = st.sidebar.selectbox("Device Used", ['mobile', 'desktop', 'tablet'])
-    
-    # Tambahkan fitur-fitur yang missing dari error
-    # Anda perlu menyesuaikan nilai default ini berdasarkan domain knowledge
-    input_data['Customer Location'] = st.sidebar.selectbox("Customer Location", 
-                                                          ['Jakarta', 'Surabaya', 'Bandung', 'Medan', 'Other'])
-    input_data['Device_Change'] = st.sidebar.selectbox("Device Change", 
-                                                      ['no', 'yes'])
-    
-    # Tambahkan fitur-fitur numerik lainnya dengan nilai default
-    # Sesuaikan dengan fitur-fitur lain yang mungkin ada di selected_features
-    for feature in selected_features:
-        if feature not in input_data and feature not in ['Payment Method', 'Product Category', 
-                                                        'Device Used', 'Customer Location', 'Device_Change']:
-            if 'Amount' in feature or 'age' in feature.lower() or 'hour' in feature.lower():
-                input_data[feature] = st.sidebar.number_input(feature, value=0.0)
-            else:
-                input_data[feature] = st.sidebar.number_input(feature, value=0)
+    # Buat input untuk setiap fitur numerik
+    for feature in numerical_features:
+        # Tentukan range yang sesuai berdasarkan jenis fitur
+        if 'Amount' in feature:
+            input_data[feature] = st.sidebar.number_input(f"{feature}", min_value=0.0, value=100.0)
+        elif 'Age' in feature or 'Days' in feature:
+            input_data[feature] = st.sidebar.number_input(f"{feature}", min_value=0, value=30)
+        elif 'Hour' in feature:
+            input_data[feature] = st.sidebar.slider(f"{feature}", 0, 23, 12)
+        elif 'Quantity' in feature:
+            input_data[feature] = st.sidebar.slider(f"{feature}", 1, 10, 1)
+        else:
+            # Default untuk fitur numerik lainnya
+            input_data[feature] = st.sidebar.number_input(f"{feature}", value=0.0)
     
     return pd.DataFrame([input_data])
-    
+
 #Get user input   
 input_df = user_input_features()
 
-#buat fungsi preprocessing
+#buat fungsi preprocessing yang lebih robust
 def preprocess_input(input_df, scaler, label_encoders, selected_features):
     try:
         # Buat dataframe dengan semua fitur yang diperlukan
-        df_processed = pd.DataFrame(0, index=input_df.index, columns=selected_features)
+        df_processed = pd.DataFrame(index=input_df.index, columns=selected_features)
         
-        # Salin nilai dari input ke dataframe processed
+        # Isi nilai untuk setiap fitur
         for col in selected_features:
             if col in input_df.columns:
                 df_processed[col] = input_df[col].values
             else:
-                # Jika fitur tidak ada di input, beri nilai default
-                df_processed[col] = 0
+                # Beri nilai default berdasarkan tipe fitur
+                if col in label_encoders:
+                    df_processed[col] = label_encoders[col].classes_[0]  # kategori pertama
+                else:
+                    df_processed[col] = 0.0  # default numerik
         
         # Encode kolom kategorikal
-        categorical_cols = [col for col in selected_features if col in label_encoders]
-        
-        for col in categorical_cols:
-            if col in input_df.columns:
+        for col in selected_features:
+            if col in label_encoders:
                 le = label_encoders[col]
-                # Handle unseen categories
-                if input_df[col].iloc[0] in le.classes_:
-                    df_processed[col] = le.transform(input_df[col])
+                # Pastikan nilai ada dalam classes
+                if df_processed[col].iloc[0] in le.classes_:
+                    df_processed[col] = le.transform(df_processed[col])
                 else:
-                    df_processed[col] = -1  # nilai untuk kategori tidak dikenal
+                    # Jika nilai tidak dikenal, gunakan nilai default (kelas pertama)
+                    df_processed[col] = le.transform([le.classes_[0]])[0]
         
         # Scale kolom numerik
-        numerical_cols = [col for col in selected_features if col not in categorical_cols]
-        
+        numerical_cols = [col for col in selected_features if col not in label_encoders]
         if numerical_cols and scaler is not None:
             df_processed[numerical_cols] = scaler.transform(df_processed[numerical_cols])
         
@@ -124,13 +129,35 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
 st.subheader("Data Transaksi yang Dimasukkan")
 st.write(input_df)
 
+# Tampilkan informasi tentang fitur
+st.subheader("Informasi Fitur")
+col1, col2 = st.columns(2)
+
+with col1:
+    st.write("**Fitur Kategorikal:**")
+    for feat in categorical_features:
+        st.write(f"- {feat}: {label_encoders[feat].classes_}")
+
+with col2:
+    st.write("**Fitur Numerik:**")
+    st.write(numerical_features)
+
 #buat tombol Prediksi ketika ditekan
 if st.button("Predict Fraud Risk"):
     try:
         processed_input = preprocess_input(input_df, scaler, label_encoders, selected_features)
-        st.write("✅ Final Processed Features:", processed_input.columns.tolist())
-        st.write("Processed shape:", processed_input.shape)
-
+        
+        st.subheader("Data Setelah Preprocessing")
+        st.dataframe(processed_input)
+        st.write("Shape:", processed_input.shape)
+        st.write("Data types:", processed_input.dtypes)
+        
+        # Pastikan urutan kolom benar
+        processed_input = processed_input[selected_features]
+        
+        # Debug: Tampilkan beberapa nilai
+        st.write("Sample values:", processed_input.iloc[0, :5].to_dict())
+        
         prediction = model.predict(processed_input)
         prediction_proba = model.predict_proba(processed_input)
     
@@ -164,9 +191,12 @@ if st.button("Predict Fraud Risk"):
             'Probability': [prediction_proba[0][0] * 100, prediction_proba[0][1] * 100]
         })
         st.bar_chart(prob_df.set_index('Class'))
+        
     except Exception as e:
         st.error(f"❌ Error saat preprocessing/predict: {e}")
-        
+        import traceback
+        st.error(f"Traceback: {traceback.format_exc()}")
+
 #kita tambahkan informasi tentang model
 st.sidebar.markdown("---")
 st.sidebar.subheader("About the Model")
