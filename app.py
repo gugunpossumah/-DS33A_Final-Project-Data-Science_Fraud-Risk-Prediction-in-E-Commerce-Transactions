@@ -44,64 +44,81 @@ Sistem ini memprediksi kemungkinan transaksi e-commerce merupakan fraud berdasar
 st.sidebar.header("Input Data Transaksi")
 
 #buat Fungsi untuk input data
-
 def user_input_features():
-    transaction_amount = st.sidebar.number_input("Transaction Amount", min_value=0.0, value=100.0)
-    quantity = st.sidebar.slider("Quantity", 1, 5, 2)
-    customer_age = st.sidebar.slider("Customer Age", 18, 100, 35)
-    account_age_days = st.sidebar.slider("Account Age Days", 1, 365, 180)
-    transaction_hour = st.sidebar.slider("Transaction Hour", 0, 23, 12)
+    # Input untuk fitur-fitur yang disebutkan dalam error
+    input_data = {}
     
-    payment_method = st.sidebar.selectbox("Payment Method", ['credit card', 'debit card', 'bank transfer', 'PayPal'])
-    product_category = st.sidebar.selectbox("Product Category", ['electronics', 'clothing', 'home & garden', 'books', 'beauty'])
-    device_used = st.sidebar.selectbox("Device Used", ['mobile', 'desktop', 'tablet'])
+    # Fitur numerik
+    input_data['Transaction Amount'] = st.sidebar.number_input("Transaction Amount", min_value=0.0, value=100.0)
+    input_data['Quantity'] = st.sidebar.slider("Quantity", 1, 5, 2)
+    input_data['Customer Age'] = st.sidebar.slider("Customer Age", 18, 100, 35)
+    input_data['Account Age Days'] = st.sidebar.slider("Account Age Days", 1, 365, 180)
+    input_data['Transaction Hour'] = st.sidebar.slider("Transaction Hour", 0, 23, 12)
     
-    return pd.DataFrame({
-        'Transaction Amount': [transaction_amount],
-        'Quantity': [quantity],
-        'Customer Age': [customer_age],
-        'Account Age Days': [account_age_days],
-        'Transaction Hour': [transaction_hour],
-        'Payment Method': [payment_method],
-        'Product Category': [product_category],
-        'Device Used': [device_used]
-    })
+    # Fitur kategorikal dari error message
+    input_data['Payment Method'] = st.sidebar.selectbox("Payment Method", ['credit card', 'debit card', 'bank transfer', 'PayPal'])
+    input_data['Product Category'] = st.sidebar.selectbox("Product Category", ['electronics', 'clothing', 'home & garden', 'books', 'beauty'])
+    input_data['Device Used'] = st.sidebar.selectbox("Device Used", ['mobile', 'desktop', 'tablet'])
+    
+    # Tambahkan fitur-fitur yang missing dari error
+    # Anda perlu menyesuaikan nilai default ini berdasarkan domain knowledge
+    input_data['Customer Location'] = st.sidebar.selectbox("Customer Location", 
+                                                          ['Jakarta', 'Surabaya', 'Bandung', 'Medan', 'Other'])
+    input_data['Device_Change'] = st.sidebar.selectbox("Device Change", 
+                                                      ['no', 'yes'])
+    
+    # Tambahkan fitur-fitur numerik lainnya dengan nilai default
+    # Sesuaikan dengan fitur-fitur lain yang mungkin ada di selected_features
+    for feature in selected_features:
+        if feature not in input_data and feature not in ['Payment Method', 'Product Category', 
+                                                        'Device Used', 'Customer Location', 'Device_Change']:
+            if 'Amount' in feature or 'age' in feature.lower() or 'hour' in feature.lower():
+                input_data[feature] = st.sidebar.number_input(feature, value=0.0)
+            else:
+                input_data[feature] = st.sidebar.number_input(feature, value=0)
+    
+    return pd.DataFrame([input_data])
     
 #Get user input   
 input_df = user_input_features()
 
 #buat fungsi preprocessing
 def preprocess_input(input_df, scaler, label_encoders, selected_features):
-    # Buat dataframe kosong sesuai selected_features
-    df = pd.DataFrame(0, index=[0], columns=selected_features)
-
-    # Pisahkan kolom kategorikal dan numerik
-    numeric_cols = [c for c in selected_features if c not in label_encoders.keys()]
-
-    # Masukkan nilai numerik dari input user
-    for col in numeric_cols:
-        if col in input_df.columns:
-            df[col] = input_df[col]
-        else:
-            df[col] = 0.0  # default
-
-    # Encode kolom kategorikal
-    for col in label_encoders.keys():
-        le = label_encoders[col]
-        if col in input_df.columns:
-            val = input_df[col].iloc[0]
-            df[col] = le.transform([val])[0] if val in le.classes_ else -1
-        else:
-            df[col] = -1  # default jika user tidak input
-
-    # Scale numerik
-    if numeric_cols:
-        df[numeric_cols] = scaler.transform(df[numeric_cols])
-
-    # Pastikan urutan kolom sesuai training
-    df_final = df[selected_features]
-
-    return df_final
+    try:
+        # Buat dataframe dengan semua fitur yang diperlukan
+        df_processed = pd.DataFrame(0, index=input_df.index, columns=selected_features)
+        
+        # Salin nilai dari input ke dataframe processed
+        for col in selected_features:
+            if col in input_df.columns:
+                df_processed[col] = input_df[col].values
+            else:
+                # Jika fitur tidak ada di input, beri nilai default
+                df_processed[col] = 0
+        
+        # Encode kolom kategorikal
+        categorical_cols = [col for col in selected_features if col in label_encoders]
+        
+        for col in categorical_cols:
+            if col in input_df.columns:
+                le = label_encoders[col]
+                # Handle unseen categories
+                if input_df[col].iloc[0] in le.classes_:
+                    df_processed[col] = le.transform(input_df[col])
+                else:
+                    df_processed[col] = -1  # nilai untuk kategori tidak dikenal
+        
+        # Scale kolom numerik
+        numerical_cols = [col for col in selected_features if col not in categorical_cols]
+        
+        if numerical_cols and scaler is not None:
+            df_processed[numerical_cols] = scaler.transform(df_processed[numerical_cols])
+        
+        return df_processed[selected_features]
+        
+    except Exception as e:
+        st.error(f"Error in preprocessing: {e}")
+        raise e
 
 #buat Main panel
 st.subheader("Data Transaksi yang Dimasukkan")
