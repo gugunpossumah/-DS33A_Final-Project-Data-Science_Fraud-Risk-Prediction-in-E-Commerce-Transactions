@@ -1,23 +1,21 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import pickle
 import joblib
 import os
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 
-# ------------------------
-# Page config
-# ------------------------
+#kita set page config
 st.set_page_config(
     page_title="Fraud Detection System",
     page_icon="⚠️",
     layout="wide"
 )
 
+#kita load model dan preprocessing objects
 BASE_DIR = os.path.dirname(__file__)
 
-# ------------------------
-# Load model & preprocessing
-# ------------------------
 @st.cache_resource
 def load_model():
     model = joblib.load(os.path.join(BASE_DIR, "fraud_detection_model.pkl"))
@@ -26,119 +24,115 @@ def load_model():
 
 try:
     model, preprocessing = load_model()
+
     scaler = preprocessing['scaler']
     label_encoders = preprocessing['label_encoders']
-    selected_features = preprocessing['selected_features']  # 20 fitur final
+    selected_features = [
+        'Transaction Amount', 'Payment Method', 'Product Category', 'Quantity',
+        'Customer Age', 'Customer Location', 'Account Age Days', 'Transaction Hour',
+        'Transaction_Day', 'Transaction_DayOfWeek', 'Transaction_IsNight', 'Address_Mismatch',
+        'IP_FirstOctet', 'IP_SecondOctet', 'Amount_per_Item', 'Large_Transaction',
+        'Transaction_Amount_Log', 'Avg_Amount_Customer', 'Deviation_Amount', 'New_Customer'
+    ]
 
-    st.success("✅ Model & preprocessing berhasil dimuat!")
+    st.success("Model & preprocessing berhasil dimuat!")
+    st.write("Jumlah fitur yang dipakai:", len(selected_features))
+    st.write("Daftar fitur final:", selected_features)
+
 except Exception as e:
-    st.error("❌ Model/preprocessing tidak ditemukan.")
+    st.error("Model tidak ditemukan!. Pastikan file model & preprocessing ada di direktori yang sama.")
     st.stop()
 
-# ------------------------
-# Sidebar: user input
-# ------------------------
+#buat judul
+st.title("⚠️ Fraud Detection System - E-Commerce Transactions")
+st.markdown("""
+Sistem ini memprediksi kemungkinan transaksi e-commerce merupakan fraud berdasarkan karakteristik transaksi.
+""")
+
+#buat Sidebar untuk input data
 st.sidebar.header("Input Data Transaksi")
 
+#buat Fungsi untuk input data
 def user_input_features():
     transaction_amount = st.sidebar.number_input("Transaction Amount", min_value=0.0, value=100.0)
-    quantity = st.sidebar.slider("Quantity", 1, 10, 1)
+    quantity = st.sidebar.slider("Quantity", 1, 5, 2)
     customer_age = st.sidebar.slider("Customer Age", 18, 100, 35)
     account_age_days = st.sidebar.slider("Account Age Days", 1, 365, 180)
-    transaction_date = st.sidebar.date_input("Transaction Date")
-    device_used = st.sidebar.selectbox("Device Used", ['mobile', 'desktop', 'tablet'])
+    transaction_hour = st.sidebar.slider("Transaction Hour", 0, 23, 12)
+    
     payment_method = st.sidebar.selectbox("Payment Method", ['credit card', 'debit card', 'bank transfer', 'PayPal'])
     product_category = st.sidebar.selectbox("Product Category", ['electronics', 'clothing', 'home & garden', 'books', 'beauty'])
-    customer_location = st.sidebar.text_input("Customer Location", "Unknown")
-    shipping_address = st.sidebar.text_input("Shipping Address", "Address1")
-    billing_address = st.sidebar.text_input("Billing Address", "Address1")
-    ip_address = st.sidebar.text_input("IP Address", "0.0.0.0")
-
+    device_used = st.sidebar.selectbox("Device Used", ['mobile', 'desktop', 'tablet'])
+    
     data = {
         'Transaction Amount': transaction_amount,
         'Quantity': quantity,
         'Customer Age': customer_age,
         'Account Age Days': account_age_days,
-        'Transaction Date': pd.to_datetime(transaction_date),
-        'Device Used': device_used,
+        'Transaction Hour': transaction_hour,
         'Payment Method': payment_method,
         'Product Category': product_category,
-        'Customer Location': customer_location,
-        'Shipping Address': shipping_address,
-        'Billing Address': billing_address,
-        'IP Address': ip_address
+        'Device Used': device_used
     }
+    
     return pd.DataFrame(data, index=[0])
-
+    
+#Get user input   
 input_df = user_input_features()
 
-# ------------------------
-# Preprocessing untuk prediksi
-# ------------------------
-def preprocess_input_safe(input_df, scaler, label_encoders, selected_features):
+#buat fungsi preprocessing
+def preprocess_input(input_df, scaler, label_encoders, model):
     df = input_df.copy()
 
-    # Transaction date
-    if 'Transaction Date' in df.columns:
-        df['Transaction_Day'] = df['Transaction Date'].dt.day
-        df['Transaction_Month'] = df['Transaction Date'].dt.month
-        df['Transaction_DayOfWeek'] = df['Transaction Date'].dt.dayofweek
-        df['Transaction_IsWeekend'] = df['Transaction_DayOfWeek'].isin([5,6]).astype(int)
-        df['Transaction Hour'] = df['Transaction Date'].dt.hour
-        df['Transaction_IsNight'] = ((df['Transaction Hour']>=0) & (df['Transaction Hour']<=6)).astype(int)
+    # Ambil nama fitur model
+    model_features = list(model.feature_names_in_)
 
-    # Fitur berbasis alamat
-    df['Address_Mismatch'] = (df['Shipping Address'] != df['Billing Address']).astype(int)
+    # Tambahkan fitur yang hilang / default
+    for col in model_features:
+        if col not in df.columns:
+            if col in ["Transaction_IsNight", "Large_Transaction", "Transaction_IsWeekend", "Device_Change", "New_Customer"]:
+                df[col] = 0
+            elif col in ["Amount_per_Item", "Transaction_Amount_Log", "Deviation_Amount", "Avg_Amount_Customer", "Transaction_Frequency"]:
+                df[col] = 0.0
+            elif col in ["Device Used", "Customer Location", "Payment Method", "Product Category"]:
+                df[col] = "unknown"
+            else:
+                df[col] = 0
 
-    # Fitur IP
-    def extract_ip(ip):
-        try:
-            parts = ip.split('.')
-            return int(parts[0]), int(parts[1])
-        except:
-            return 0,0
-    ip_feats = df['IP Address'].apply(lambda x: extract_ip(str(x)))
-    df['IP_FirstOctet'] = ip_feats.apply(lambda x: x[0])
-    df['IP_SecondOctet'] = ip_feats.apply(lambda x: x[1])
-
-    # Fitur transaksi
-    df['Amount_per_Item'] = df['Transaction Amount'] / (df['Quantity'] + 1e-6)
-    df['Large_Transaction'] = (df['Transaction Amount']>500).astype(int)
-    df['Transaction_Amount_Log'] = np.log1p(df['Transaction Amount'])
-
-    # Fitur perilaku pelanggan
-    df['Transaction_Frequency'] = 1  # default dummy karena hanya 1 row input
-    df['Avg_Amount_Customer'] = df['Transaction Amount']
-    df['Deviation_Amount'] = 0
-    df['Device_Change'] = 0
-    df['New_Customer'] = (df['Account Age Days'] < 30).astype(int)
-
-    # Encode categorical
-    for col in ['Payment Method', 'Product Category', 'Customer Location', 'Device Used']:
+    # Encode kategorikal
+    categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
+    for col in categorical_cols:
         if col in df.columns and col in label_encoders:
             le = label_encoders[col]
             val = df[col].iloc[0]
             df[col] = le.transform([val])[0] if val in le.classes_ else -1
 
-    # Scaling numerik
-    num_cols = [c for c in scaler.feature_names_in_ if c in df.columns]
-    if num_cols:
-        df[num_cols] = scaler.transform(df[num_cols])
+    # Scale numerik
+    numeric_cols = [col for col in scaler.feature_names_in_ if col in df.columns]
+    if numeric_cols:
+        df[numeric_cols] = scaler.transform(df[numeric_cols])
 
-    # Hanya fitur yang dilihat model
-    df_final = df[selected_features]
+    # Pastikan semua nama kolom string
+    df.columns = df.columns.map(str)
+
+    # Pastikan semua nilai numerik bertipe float/int
+    for col in df.columns:
+        if df[col].dtype == object:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+
+    # Urutkan kolom persis seperti model
+    df_final = df[model_features]
 
     return df_final
-
-# ------------------------
-# Main panel
-# ------------------------
-st.subheader("Data Transaksi")
+    
+#buat Main panel
+st.subheader("Data Transaksi yang Dimasukkan")
 st.write(input_df)
 
+#buat tombol Prediksi ketika ditekan
 if st.button("Predict Fraud Risk"):
     try:
-        processed_input = preprocess_input_safe(input_df, scaler, label_encoders, selected_features)
+        processed_input = preprocess_input(input_df, scaler, label_encoders, model)
 
         st.write("✅ Final Processed Features:", processed_input.columns.tolist())
         st.write("Processed shape:", processed_input.shape)
@@ -146,12 +140,65 @@ if st.button("Predict Fraud Risk"):
         prediction = model.predict(processed_input)
         prediction_proba = model.predict_proba(processed_input)
 
-        st.subheader("Prediction Result")
-        col1, col2 = st.columns(2)
-        col1.metric("Prediction", "🚨 FRAUD" if prediction[0]==1 else "✅ LEGITIMATE")
-        col2.metric("Fraud Probability", f"{prediction_proba[0][1]*100:.2f}%")
-
-        st.progress(float(prediction_proba[0][1]))
-
     except Exception as e:
         st.error(f"❌ Error saat preprocessing/predict: {e}")
+        st.stop()
+    
+    # Display results
+    st.subheader("Prediction Results")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.metric("Prediction", "🚨 FRAUD" if prediction[0] == 1 else "✅ LEGITIMATE")
+    
+    with col2:
+        fraud_prob = prediction_proba[0][1] * 100
+        st.metric("Fraud Probability", f"{fraud_prob:.2f}%")
+    
+    # Progress bar untuk probability
+    st.progress(float(prediction_proba[0][1]))
+    
+    # Interpretasi hasil
+    if prediction[0] == 1:
+        st.error("🚨 WARNING: Transaksi ini terdeteksi sebagai potensial FRAUD!")
+        st.info("Rekomendasi: Lakukan verifikasi tambahan pada transaksi ini.")
+    else:
+        st.success("✅ Transaksi ini terdeteksi sebagai LEGITIMATE")
+        st.info("Transaksi dapat diproses secara normal.")
+    
+    # Additional information
+    st.subheader("Detail Probabilitas")
+    prob_df = pd.DataFrame({
+        'Class': ['Legitimate', 'Fraud'],
+        'Probability': [prediction_proba[0][0] * 100, prediction_proba[0][1] * 100]
+    })
+    st.bar_chart(prob_df.set_index('Class'))
+
+#kita tambahkan informasi tentang model
+st.sidebar.markdown("---")
+st.sidebar.subheader("About the Model")
+st.sidebar.info("""
+**Model Machine Learning yang digunakan:**
+- **Algorithm**: XGBoost Classifier (Optimal)
+- **Best Threshold**: 0.7726
+- **AUC Score**: 0.7735
+- **F1-Score**: 0.3604
+
+**Performance Metrics (Optimal Threshold):**
+- **Precision**: 30.42%
+- **Recall**: 44.19%
+- **Accuracy**: 92%
+
+**Business Impact:**
+- **Fraud Detection Rate**: 44%
+- **False Positive Rate**: 30%
+- **Estimated Savings**: Rp 2.1M per 1000 transactions
+""")
+
+
+#buat Footer untuk peringatan
+st.markdown("---")
+st.markdown("""
+**Disclaimer**: Prediksi ini berdasarkan model machine learning dan harus digunakan sebagai alat bantu keputusan.
+""")
