@@ -29,9 +29,7 @@ try:
     selected_features = preprocessing['selected_features'] #20 fitur hasil SelectKBest
     
     # Convert to list if it's numpy array
-    if hasattr(selected_features, 'tolist'):
-        selected_features = selected_features.tolist()
-    elif isinstance(selected_features, np.ndarray):
+     if isinstance(selected_features, np.ndarray):
         selected_features = selected_features.tolist()
     
     st.success("Model & preprocessing berhasil dimuat!")
