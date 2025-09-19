@@ -27,14 +27,7 @@ try:
 
     scaler = preprocessing['scaler']
     label_encoders = preprocessing['label_encoders']
-    selected_features = [
-        'Transaction Amount', 'Payment Method', 'Product Category', 'Quantity',
-        'Customer Age', 'Customer Location', 'Account Age Days', 'Transaction Hour',
-        'Transaction_Day', 'Transaction_DayOfWeek', 'Transaction_IsNight', 'Address_Mismatch',
-        'IP_FirstOctet', 'IP_SecondOctet', 'Amount_per_Item', 'Large_Transaction',
-        'Transaction_Amount_Log', 'Avg_Amount_Customer', 'Deviation_Amount', 'New_Customer',
-        'Device_Change', 'Transaction_Frequency', 'Transaction_IsWeekend', 'Transaction_Month'
-    ]
+    selected_features = preprocessing['selected_features']
 
     st.success("Model & preprocessing berhasil dimuat!")
     st.write("Jumlah fitur yang dipakai:", len(selected_features))
