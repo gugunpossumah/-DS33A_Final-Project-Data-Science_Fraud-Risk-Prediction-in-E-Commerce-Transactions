@@ -118,15 +118,13 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
         if col not in df_processed.columns:
             df_processed[col] = 0
 
+    #Scaling
+    numerical_cols = scaler.feature_names_in_
+    df_processed[numerical_cols] = scaler.transform(df_processed[numerical_cols])
+    
     #kita urutkan sesuai training 
     df_processed = df_processed[selected_features]
-
-    #Scaling
-    df_processed = pd.DataFrame(
-        scaler.transform(df_processed),
-        columns=selected_features
-    )
-
+    
     return df_processed
 
 #buat Main panel
