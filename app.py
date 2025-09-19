@@ -87,25 +87,33 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
     # Tambahkan kolom default jika hilang
     for col in selected_features:
         if col not in df.columns:
+            # Kolom numerik
             if col in ["Transaction Amount", "Quantity", "Customer Age", "Account Age Days",
                        "Transaction Hour", "Amount_per_Item", "Transaction_Amount_Log",
-                       "Avg_Amount_Customer", "Deviation_Amount"]:
+                       "Avg_Amount_Customer", "Deviation_Amount", "Transaction_Frequency",
+                       "Transaction_Month"]:
                 df[col] = 0.0
+            # Kolom boolean/flag
             else:
-                df[col] = 0  # boolean / flag
-
+                df[col] = 0
+    # kita pastikan kolom kategorikal ada           
+    for col in ["Customer Location", "Device Used", "Payment Method", "Product Category"]:
+        if col not in df.columns:
+            df[col] = "unknown"
     # Encode kategorikal
-    categorical_cols = ["Payment Method", "Product Category", "Device Used", "Customer Location"]
+    categorical_cols = ["Customer Location", "Device Used", "Payment Method", "Product Category"]
     for col in categorical_cols:
         if col in df.columns and col in label_encoders:
             le = label_encoders[col]
             val = df[col].iloc[0]
+            #gunakan -1 jika tidak ada di LabelENcoder
             df[col] = le.transform([val])[0] if val in le.classes_ else -1
 
     # Scale numerik
-    numeric_cols = [col for col in selected_features if col not in categorical_cols]
-    df[numeric_cols] = scaler.transform(df[numeric_cols])
-
+    numeric_cols = [col for col in df.columns if col not in categorical_cols]
+    if numeric_cols:
+        df[numeric_cols] = scaler.transform(df[numeric_cols])
+        
     # Pastikan semua kolom string
     df.columns = df.columns.map(str)
     
