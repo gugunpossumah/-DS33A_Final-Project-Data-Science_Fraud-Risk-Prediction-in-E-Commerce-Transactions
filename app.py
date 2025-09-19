@@ -76,55 +76,55 @@ input_df = user_input_features()
 
 #buat fungsi preprocessing
 def preprocess_input(input_df, scaler, label_encoders, selected_features):
-    df_processed = input_df.copy()
+    df = input_df.copy()
 
-    # Tambahkan fitur hanya jika ada di selected_features
+    # Tambahkan fitur turunan hanya jika ada di selected_features
     for col in selected_features:
-        if col not in df_processed.columns:
+        if col not in df.columns:
             if col == "Transaction_Day":
-                df_processed[col] = 15
+                df[col] = 15
             elif col == "Transaction_Month":
-                df_processed[col] = 1
+                df[col] = 1
             elif col == "Transaction_DayOfWeek":
-                df_processed[col] = 3
+                df[col] = 3
             elif col == "Transaction_IsWeekend":
-                df_processed[col] = 0
+                df[col] = 0
             elif col == "Transaction_IsNight":
-                df_processed[col] = (df_processed["Transaction Hour"].between(0,6).astype(int))
+                df[col] = (df["Transaction Hour"].between(0,6).astype(int))
             elif col == "Address_Mismatch":
-                df_processed[col] = 0
+                df[col] = 0
             elif col == "IP_FirstOctet":
-                df_processed[col] = 0
+                df[col] = 0
             elif col == "IP_SecondOctet":
-                df_processed[col] = 0
+                df[col] = 0
             elif col == "Amount_per_Item":
-                df_processed[col] = df_processed["Transaction Amount"] / (df_processed["Quantity"] + 1e-6)
+                df[col] = df["Transaction Amount"] / (df["Quantity"] + 1e-6)
             elif col == "Large_Transaction":
-                df_processed[col] = (df_processed["Transaction Amount"] > 500).astype(int)
+                df[col] = (df["Transaction Amount"] > 500).astype(int)
             elif col == "Transaction_Amount_Log":
-                df_processed[col] = np.log1p(df_processed["Transaction Amount"])
+                df[col] = np.log1p(df["Transaction Amount"])
             else:
-                df_processed[col] = 0  # default
+                df[col] = 0  # default 0 untuk fitur lain yang memang di selected_features
 
-    # Encode categorical hanya jika ada di selected_features
+    # Encode kategorikal
     for col in ["Payment Method", "Product Category", "Device Used", "Customer Location"]:
-        if col in selected_features and col in df_processed.columns:
-            if col in label_encoders:
-                le = label_encoders[col]
-                val = df_processed[col].iloc[0]
-                df_processed[col] = le.transform([val])[0] if val in le.classes_ else -1
+        if col in selected_features and col in df.columns:
+            le = label_encoders.get(col)
+            if le:
+                val = df[col].iloc[0]
+                df[col] = le.transform([val])[0] if val in le.classes_ else -1
             else:
-                df_processed[col] = -1
+                df[col] = -1
 
     # Scale numerik
     numeric_cols = [col for col in scaler.feature_names_in_ if col in selected_features]
     if numeric_cols:
-        df_processed[numeric_cols] = scaler.transform(df_processed[numeric_cols])
+        df[numeric_cols] = scaler.transform(df[numeric_cols])
 
-    # **Filter akhir ke selected_features saja (20 fitur)**
-    df_processed = df_processed[selected_features]
+    # **Filter akhir ke selected_features** (20 kolom)
+    df_final = df[selected_features]
 
-    return df_processed
+    return df_final
     
 #buat Main panel
 st.subheader("Data Transaksi yang Dimasukkan")
