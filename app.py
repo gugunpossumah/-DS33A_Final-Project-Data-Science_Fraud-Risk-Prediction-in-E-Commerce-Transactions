@@ -75,58 +75,60 @@ input_df = user_input_features()
 # ------------------------
 # Preprocessing untuk prediksi
 # ------------------------
-def preprocess_input(input_df, scaler, label_encoders, selected_features):
+def preprocess_input_safe(input_df, scaler, label_encoders, selected_features):
     df = input_df.copy()
 
-    #'Transaction Hour' untuk hitung Transaction_IsNight
-    transaction_hour = df['Transaction Hour'].iloc[0] if 'Transaction Hour' in df.columns else 0
+    # Transaction date
+    if 'Transaction Date' in df.columns:
+        df['Transaction_Day'] = df['Transaction Date'].dt.day
+        df['Transaction_Month'] = df['Transaction Date'].dt.month
+        df['Transaction_DayOfWeek'] = df['Transaction Date'].dt.dayofweek
+        df['Transaction_IsWeekend'] = df['Transaction_DayOfWeek'].isin([5,6]).astype(int)
+        df['Transaction Hour'] = df['Transaction Date'].dt.hour
+        df['Transaction_IsNight'] = ((df['Transaction Hour']>=0) & (df['Transaction Hour']<=6)).astype(int)
 
-    if 'Transaction_IsNight' in selected_features:
-        df['Transaction_IsNight'] = int(0 <= transaction_hour <= 6)
+    # Fitur berbasis alamat
+    df['Address_Mismatch'] = (df['Shipping Address'] != df['Billing Address']).astype(int)
 
-    # Buat fitur lain hanya jika ada di selected_features
-    if 'Transaction_Day' in selected_features:
-        df['Transaction_Day'] = 15
-    if 'Transaction_DayOfWeek' in selected_features:
-        df['Transaction_DayOfWeek'] = 3
-    if 'Address_Mismatch' in selected_features:
-        df['Address_Mismatch'] = 0
-    if 'IP_FirstOctet' in selected_features:
-        df['IP_FirstOctet'] = 0
-    if 'IP_SecondOctet' in selected_features:
-        df['IP_SecondOctet'] = 0
-    if 'Amount_per_Item' in selected_features:
-        df['Amount_per_Item'] = df['Transaction Amount'] / (df['Quantity'] + 1e-6)
-    if 'Large_Transaction' in selected_features:
-        df['Large_Transaction'] = int(df['Transaction Amount'] > 500)
-    if 'Transaction_Amount_Log' in selected_features:
-        df['Transaction_Amount_Log'] = np.log1p(df['Transaction Amount'])
-    if 'Avg_Amount_Customer' in selected_features:
-        df['Avg_Amount_Customer'] = 0
-    if 'Deviation_Amount' in selected_features:
-        df['Deviation_Amount'] = 0
-    if 'New_Customer' in selected_features:
-        df['New_Customer'] = int(df['Account Age Days'].iloc[0] < 30)
+    # Fitur IP
+    def extract_ip(ip):
+        try:
+            parts = ip.split('.')
+            return int(parts[0]), int(parts[1])
+        except:
+            return 0,0
+    ip_feats = df['IP Address'].apply(lambda x: extract_ip(str(x)))
+    df['IP_FirstOctet'] = ip_feats.apply(lambda x: x[0])
+    df['IP_SecondOctet'] = ip_feats.apply(lambda x: x[1])
+
+    # Fitur transaksi
+    df['Amount_per_Item'] = df['Transaction Amount'] / (df['Quantity'] + 1e-6)
+    df['Large_Transaction'] = (df['Transaction Amount']>500).astype(int)
+    df['Transaction_Amount_Log'] = np.log1p(df['Transaction Amount'])
+
+    # Fitur perilaku pelanggan
+    df['Transaction_Frequency'] = 1  # default dummy karena hanya 1 row input
+    df['Avg_Amount_Customer'] = df['Transaction Amount']
+    df['Deviation_Amount'] = 0
+    df['Device_Change'] = 0
+    df['New_Customer'] = (df['Account Age Days'] < 30).astype(int)
 
     # Encode categorical
     for col in ['Payment Method', 'Product Category', 'Customer Location', 'Device Used']:
-        if col in selected_features:
+        if col in df.columns and col in label_encoders:
             le = label_encoders[col]
             val = df[col].iloc[0]
             df[col] = le.transform([val])[0] if val in le.classes_ else -1
 
     # Scaling numerik
-    num_cols = [col for col in scaler.feature_names_in_ if col in df.columns and col in selected_features]
+    num_cols = [c for c in scaler.feature_names_in_ if c in df.columns]
     if num_cols:
         df[num_cols] = scaler.transform(df[num_cols])
 
-    # Tambahkan kolom yang hilang
-    for col in selected_features:
-        if col not in df.columns:
-            df[col] = 0
+    # Hanya fitur yang dilihat model
+    df_final = df[selected_features]
 
-    # Hanya kolom final yang dilihat model
-    return df[selected_features]
+    return df_final
 
 # ------------------------
 # Main panel
