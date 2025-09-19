@@ -75,70 +75,55 @@ input_df = user_input_features()
 # ------------------------
 # Preprocessing untuk prediksi
 # ------------------------
-def preprocess_input(df, scaler, label_encoders, selected_features):
-    df_processed = df.copy()
+def preprocess_input(input_df, scaler, label_encoders, selected_features):
+    df = input_df.copy()
 
-    # --- Feature engineering ---
-    df_processed['Transaction_Day'] = df_processed['Transaction Date'].dt.day
-    df_processed['Transaction_Month'] = df_processed['Transaction Date'].dt.month
-    df_processed['Transaction_DayOfWeek'] = df_processed['Transaction Date'].dt.dayofweek
-    df_processed['Transaction_IsWeekend'] = df_processed['Transaction_DayOfWeek'].isin([5,6]).astype(int)
-    df_processed['Transaction Hour'] = df_processed['Transaction Date'].dt.hour
-    df_processed['Transaction_IsNight'] = ((df_processed['Transaction Hour'] >=0) & (df_processed['Transaction Hour'] <=6)).astype(int)
-    df_processed['Address_Mismatch'] = (df_processed['Shipping Address'] != df_processed['Billing Address']).astype(int)
+    # Feature engineering: hanya buat kolom yang ada di selected_features
+    if 'Transaction_Day' in selected_features:
+        df['Transaction_Day'] = 15
+    if 'Transaction_DayOfWeek' in selected_features:
+        df['Transaction_DayOfWeek'] = 3
+    if 'Transaction_IsNight' in selected_features:
+        df['Transaction_IsNight'] = ((df['Transaction Hour'] >= 0) & (df['Transaction Hour'] <= 6)).astype(int)
+    if 'Address_Mismatch' in selected_features:
+        df['Address_Mismatch'] = 0
+    if 'IP_FirstOctet' in selected_features:
+        df['IP_FirstOctet'] = 0
+    if 'IP_SecondOctet' in selected_features:
+        df['IP_SecondOctet'] = 0
+    if 'Amount_per_Item' in selected_features:
+        df['Amount_per_Item'] = df['Transaction Amount'] / (df['Quantity'] + 1e-6)
+    if 'Large_Transaction' in selected_features:
+        df['Large_Transaction'] = (df['Transaction Amount'] > 500).astype(int)
+    if 'Transaction_Amount_Log' in selected_features:
+        df['Transaction_Amount_Log'] = np.log1p(df['Transaction Amount'])
+    if 'Avg_Amount_Customer' in selected_features:
+        df['Avg_Amount_Customer'] = 0
+    if 'Deviation_Amount' in selected_features:
+        df['Deviation_Amount'] = 0
+    if 'New_Customer' in selected_features:
+        df['New_Customer'] = (df['Account Age Days'] < 30).astype(int)
 
-    # IP Address
-    def extract_ip(ip):
-        try:
-            parts = str(ip).split('.')
-            if len(parts)==4:
-                return int(parts[0]), int(parts[1])
-        except:
-            pass
-        return 0,0
-    ip_feats = df_processed['IP Address'].apply(extract_ip)
-    df_processed['IP_FirstOctet'] = ip_feats.apply(lambda x:x[0])
-    df_processed['IP_SecondOctet'] = ip_feats.apply(lambda x:x[1])
-
-    # Transaction based
-    df_processed['Amount_per_Item'] = df_processed['Transaction Amount'] / (df_processed['Quantity'] + 1e-6)
-    df_processed['Large_Transaction'] = (df_processed['Transaction Amount'] > 500).astype(int)
-    df_processed['Transaction_Amount_Log'] = np.log1p(df_processed['Transaction Amount'])
-
-    # Behavioral features: hanya dummy yang ada di selected_features
-    for col in ['Transaction_Frequency', 'Avg_Amount_Customer', 'Deviation_Amount', 'Device_Change', 'New_Customer']:
+    # Encode categorical
+    for col in ['Payment Method', 'Product Category', 'Customer Location', 'Device Used']:
         if col in selected_features:
-            if col == 'New_Customer':
-                df_processed[col] = (df_processed['Account Age Days'] < 30).astype(int)
-            else:
-                df_processed[col] = 0
-
-    # Encode categorical hanya yang ada di selected_features
-    categorical_cols = ['Payment Method', 'Product Category', 'Device Used', 'Customer Location']
-    for col in categorical_cols:
-        if col in selected_features and col in df_processed.columns and col in label_encoders:
             le = label_encoders[col]
-            val = df_processed[col].iloc[0]
-            df_processed[col] = le.transform([val])[0] if val in le.classes_ else -1
-
-    # Drop kolom yang tidak dipakai
-    drop_cols = ['Transaction Date', 'Shipping Address', 'Billing Address', 'IP Address', 'Transaction Hour']
-    df_processed = df_processed.drop(columns=[col for col in drop_cols if col in df_processed.columns], errors='ignore')
-
-    # Tambahkan kolom hilang yang ada di selected_features
-    for col in selected_features:
-        if col not in df_processed.columns:
-            df_processed[col] = 0
+            val = df[col].iloc[0]
+            df[col] = le.transform([val])[0] if val in le.classes_ else -1
 
     # Scale numerik
-    num_cols = [col for col in scaler.feature_names_in_ if col in df_processed.columns]
+    num_cols = [col for col in scaler.feature_names_in_ if col in df.columns and col in selected_features]
     if num_cols:
-        df_processed[num_cols] = scaler.transform(df_processed[num_cols])
+        df[num_cols] = scaler.transform(df[num_cols])
+
+    # Tambahkan kolom yang hilang di selected_features
+    for col in selected_features:
+        if col not in df.columns:
+            df[col] = 0
 
     # Urutkan sesuai selected_features
-    df_final = df_processed[selected_features]
+    return df[selected_features]
 
-    return df_final
 
 # ------------------------
 # Main panel
