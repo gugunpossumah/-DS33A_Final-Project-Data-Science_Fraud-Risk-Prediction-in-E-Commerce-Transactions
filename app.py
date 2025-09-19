@@ -72,9 +72,10 @@ input_df = user_input_features()
 
 #buat fungsi preprocessing
 def preprocess_input(input_df, scaler, label_encoders, selected_features):
-    df = pd.DataFrame(0, index=[0], columns=selected_features)  # DataFrame kosong 0
-    
-    # Pisahkan kolom numerik dan kategorikal
+    # Buat dataframe kosong sesuai selected_features
+    df = pd.DataFrame(0, index=[0], columns=selected_features)
+
+    # Pisahkan kolom kategorikal dan numerik
     categorical_cols = list(label_encoders.keys())
     numeric_cols = [c for c in selected_features if c not in categorical_cols]
 
@@ -82,21 +83,24 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
     for col in numeric_cols:
         if col in input_df.columns:
             df[col] = input_df[col]
+        else:
+            df[col] = 0.0  # default
 
     # Encode kolom kategorikal
     for col in categorical_cols:
         if col in input_df.columns:
             le = label_encoders[col]
             val = input_df[col].iloc[0]
+            # jika value tidak ada di LabelEncoder, beri -1
             df[col] = le.transform([val])[0] if val in le.classes_ else -1
         else:
-            df[col] = -1  # default jika user tidak memilih
+            df[col] = -1  # default jika tidak ada input user
 
-    # Scale kolom numerik
+    # Scale numerik
     if numeric_cols:
         df[numeric_cols] = scaler.transform(df[numeric_cols])
 
-    # Urutkan kolom sesuai selected_features
+    # Pastikan urutan kolom sesuai training
     df_final = df[selected_features]
 
     return df_final
