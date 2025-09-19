@@ -79,7 +79,7 @@ def preprocess_input(input_df, scaler, label_encoders, selected_features):
     df = input_df.copy()
 
     #'Transaction Hour' untuk hitung Transaction_IsNight
-    transaction_hour = df['Transaction Hour'].iloc[0]
+    transaction_hour = df['Transaction Hour'].iloc[0] if 'Transaction Hour' in df.columns else 0
 
     if 'Transaction_IsNight' in selected_features:
         df['Transaction_IsNight'] = int(0 <= transaction_hour <= 6)
