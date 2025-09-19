@@ -83,7 +83,6 @@ input_df = user_input_features()
 #buat fungsi preprocessing
 def preprocess_input(input_df, scaler, label_encoders, model):
     df = input_df.copy()
-
     model_features = list(model.feature_names_in_)
 
     # Tambahkan fitur turunan hanya jika ada di selected_features
@@ -156,7 +155,7 @@ st.write(input_df)
 #buat tombol Prediksi ketika ditekan
 if st.button("Predict Fraud Risk"):
     try:
-        processed_input = preprocess_input(input_df, scaler, label_encoders, selected_features)
+        processed_input = preprocess_input(input_df, scaler, label_encoders, model)
 
         st.write("✅ Final Processed Features:", processed_input.columns.tolist())
         st.write("Processed shape:", processed_input.shape)
